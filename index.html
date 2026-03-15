@@ -15,7 +15,19 @@
 <!-- html5-qrcode scanner -->
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <!-- QRCode generator -->
+<!-- QRCode generator — pakai dua CDN sebagai fallback -->
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+// Fallback: load qrcode dari cdnjs jika jsdelivr gagal
+window.addEventListener('load', function() {
+  if (typeof QRCode === 'undefined') {
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    document.head.appendChild(s);
+    console.warn('[QR] Fallback CDN loaded');
+  }
+});
+</script>
 
 <style>
   :root {
@@ -778,8 +790,12 @@
           <div style="display:flex;gap:6px;align-items:center;">
             <input type="text" id="f-species" placeholder="Ketik nama tanaman..." autocomplete="off"
               oninput="onSpeciesInput(this.value)" onblur="setTimeout(()=>closeSpeciesDrop(),200)">
-            <button type="button" id="aiRecBtn" onclick="fetchAiWatering()" title="Cari rekomendasi siram"
-              style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1.5px solid rgba(74,140,92,0.3);background:var(--dew);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;">🤖</button>
+            <button type="button" id="aiRecBtn" onclick="fetchAiWatering()" title="Rekomendasi AI"
+              style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1.5px solid rgba(74,140,92,0.3);background:var(--dew);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
+              onmouseover="this.style.background='rgba(74,140,92,0.15)'" onmouseout="this.style.background='var(--dew)'">🤖</button>
+            <a id="googleSearchBtn" href="#" target="_blank" title="Cari di Google"
+              style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1.5px solid rgba(74,140,92,0.3);background:var(--dew);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;text-decoration:none;transition:all 0.2s;"
+              onmouseover="this.style.background='rgba(74,140,92,0.15)'" onmouseout="this.style.background='var(--dew)'">🔍</a>
           </div>
           <div id="speciesDrop" style="display:none;position:absolute;top:100%;left:0;right:52px;background:white;border:1.5px solid rgba(74,140,92,0.25);border-radius:12px;box-shadow:0 8px 24px rgba(26,58,42,0.12);z-index:200;overflow:hidden;margin-top:4px;"></div>
           <div id="aiRecPanel" style="display:none;margin-top:8px;background:linear-gradient(135deg,rgba(26,58,42,0.04),rgba(74,140,92,0.06));border:1.5px solid rgba(74,140,92,0.2);border-radius:14px;padding:14px;font-size:12px;line-height:1.7;color:var(--forest);"></div>
@@ -1551,16 +1567,67 @@ function openDetail(id) {
 
   // Generate QR code after DOM ready
   setTimeout(() => {
-    const qrCanvas = document.getElementById(`qrCanvas_${p.id}`);
-    if (qrCanvas && typeof QRCode !== 'undefined') {
-      QRCode.toCanvas(qrCanvas, p.id, {
-        width: 160,
-        color: { dark: '#1a3a2a', light: '#ffffff' },
-        margin: 2,
-        errorCorrectionLevel: 'M'
-      }, (err) => { if (err) console.warn('QR error:', err); });
-    }
-  }, 100);
+    generateQRInDetail(p.id);
+  }, 150);
+}
+
+// ========== QR CODE GENERATION ==========
+function generateQRInDetail(plantId) {
+  const canvas = document.getElementById(`qrCanvas_${plantId}`);
+  if (!canvas) return;
+
+  // Method A: qrcode npm package (QRCode.toCanvas)
+  if (typeof QRCode !== 'undefined' && typeof QRCode.toCanvas === 'function') {
+    QRCode.toCanvas(canvas, plantId, {
+      width: 160, margin: 2, errorCorrectionLevel: 'M',
+      color: { dark: '#1a3a2a', light: '#ffffff' }
+    }, (err) => {
+      if (err) { console.warn('QRCode.toCanvas error:', err); generateQRFallback(canvas, plantId); }
+    });
+    return;
+  }
+
+  // Method B: qrcodejs (constructor style — QRCode(element, options))
+  if (typeof QRCode !== 'undefined' && typeof QRCode === 'function') {
+    // qrcodejs works on divs, not canvas — wrap it
+    const div = document.createElement('div');
+    div.style.cssText = 'position:absolute;opacity:0;pointer-events:none;';
+    document.body.appendChild(div);
+    new QRCode(div, { text: plantId, width: 160, height: 160, colorDark: '#1a3a2a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    setTimeout(() => {
+      const img = div.querySelector('img');
+      if (img) {
+        const ctx = canvas.getContext('2d');
+        canvas.width = 160; canvas.height = 160;
+        const i = new Image();
+        i.onload = () => { ctx.drawImage(i, 0, 0, 160, 160); };
+        i.src = img.src;
+      }
+      document.body.removeChild(div);
+    }, 300);
+    return;
+  }
+
+  // Method C: Manual fallback pakai canvas
+  generateQRFallback(canvas, plantId);
+}
+
+function generateQRFallback(canvas, text) {
+  // Simple visual placeholder kalau semua library gagal
+  const ctx = canvas.getContext('2d');
+  canvas.width = 160; canvas.height = 160;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, 160, 160);
+  ctx.fillStyle = '#1a3a2a';
+  ctx.fillRect(0, 0, 160, 6);
+  ctx.fillRect(0, 154, 160, 6);
+  ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, 80, 76);
+  ctx.font = '10px sans-serif';
+  ctx.fillStyle = '#7fb08a';
+  ctx.fillText('QR Code', 80, 96);
+  ctx.fillText('(load library)', 80, 112);
 }
 
 // ========== QR LABEL DOWNLOAD ==========
@@ -1622,10 +1689,24 @@ async function downloadQRLabel(id) {
 
   // QR Code (right side)
   const qrTempCanvas = document.createElement('canvas');
+  // Generate QR ke canvas sementara
   await new Promise((resolve) => {
-    QRCode.toCanvas(qrTempCanvas, p.id, { width: 130, color: { dark: '#1a3a2a', light: '#ffffff' }, margin: 1, errorCorrectionLevel: 'M' }, resolve);
+    if (typeof QRCode !== 'undefined' && typeof QRCode.toCanvas === 'function') {
+      QRCode.toCanvas(qrTempCanvas, p.id, { width: 130, color: { dark: '#1a3a2a', light: '#ffffff' }, margin: 1, errorCorrectionLevel: 'M' }, () => resolve());
+    } else if (typeof QRCode !== 'undefined' && typeof QRCode === 'function') {
+      const div = document.createElement('div');
+      div.style.cssText = 'position:absolute;opacity:0;pointer-events:none;';
+      document.body.appendChild(div);
+      new QRCode(div, { text: p.id, width: 130, height: 130, colorDark: '#1a3a2a', colorLight: '#ffffff' });
+      setTimeout(() => {
+        const img = div.querySelector('img');
+        if (img) { qrTempCanvas.width = 130; qrTempCanvas.height = 130; const i = new Image(); i.onload = () => { qrTempCanvas.getContext('2d').drawImage(i,0,0,130,130); resolve(); }; i.src = img.src; }
+        else resolve();
+        document.body.removeChild(div);
+      }, 400);
+    } else { resolve(); }
   });
-  ctx.drawImage(qrTempCanvas, W - 144, 8, 130, 130);
+  if (qrTempCanvas.width > 0) ctx.drawImage(qrTempCanvas, W - 144, 8, 130, 130);
 
   // Bonsai emoji icon
   ctx.font = '50px serif';
@@ -1661,7 +1742,8 @@ const SPECIES_DB = [
 
 function onSpeciesInput(val) {
   const drop = document.getElementById('speciesDrop');
-  document.getElementById('googleSearchBtn') && (document.getElementById('googleSearchBtn').href = `https://www.google.com/search?q=${encodeURIComponent(val+' bonsai care Indonesia')}`);
+  const gsBtn = document.getElementById('googleSearchBtn');
+  if (gsBtn) gsBtn.href = `https://www.google.com/search?q=${encodeURIComponent(val+' bonsai perawatan penyiraman Indonesia')}`;
   if (!val || val.length < 2) { drop.style.display = 'none'; return; }
   const matches = SPECIES_DB.filter(s => s.name.toLowerCase().includes(val.toLowerCase()));
   if (!matches.length) { drop.style.display = 'none'; return; }
@@ -1722,7 +1804,17 @@ async function fetchAiWatering() {
   } else {
     const m = SPECIES_DB.find(s => s.name.toLowerCase().includes(species.toLowerCase()));
     if (m) { document.getElementById('f-waterfreq').value = m.freq; showAiPanel(`📚 <strong>${m.name}</strong> (database lokal)<br><br>💧 Siram setiap <strong>${m.freq} hari</strong><br><br>${m.notes}`, false); }
-    else showAiPanel(`<div style="text-align:center;padding:8px 0;"><div style="font-size:24px;">🌿</div><strong>${species}</strong> belum ada di database.<br>Setup Apps Script proxy untuk aktifkan AI.</div>`, false);
+    else showAiPanel(`<div style="text-align:center;padding:8px 0;">
+      <div style="font-size:24px;">🌿</div>
+      <strong>${species}</strong> belum ada di database lokal.<br><br>
+      <div style="margin-top:8px;">
+        <a href="https://www.google.com/search?q=${encodeURIComponent(species+' bonsai perawatan penyiraman Indonesia')}" target="_blank"
+          style="background:var(--leaf);color:white;padding:8px 16px;border-radius:10px;text-decoration:none;font-size:12px;font-weight:600;display:inline-block;">🔍 Cari di Google</a>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--sage);">
+        💡 Isi <strong>Anthropic API Key</strong> di konfigurasi atas untuk aktifkan AI
+      </div>
+    </div>`, false);
   }
 }
 
