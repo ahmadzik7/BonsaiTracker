@@ -14,20 +14,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <!-- html5-qrcode scanner -->
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<!-- QRCode generator -->
-<!-- QRCode generator — pakai dua CDN sebagai fallback -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script>
-// Fallback: load qrcode dari cdnjs jika jsdelivr gagal
-window.addEventListener('load', function() {
-  if (typeof QRCode === 'undefined') {
-    var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    document.head.appendChild(s);
-    console.warn('[QR] Fallback CDN loaded');
-  }
-});
-</script>
+<!-- QRCode generator — qrcodejs (paling kompatibel di semua browser) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
   :root {
@@ -667,7 +655,7 @@ window.addEventListener('load', function() {
   <span style="white-space:nowrap;font-weight:600;">⚙️ Apps Script:</span>
   <input type="text" id="sheetUrl" placeholder="Paste Apps Script Web App URL (Sheets + Drive + AI)...">
   <span style="white-space:nowrap;font-weight:600;font-size:12px;">API Key:</span>
-  <input type="password" id="anthropicKey" placeholder="sk-ant-... (opsional)" style="min-width:140px;max-width:200px;">
+  <input type="password" id="anthropicKey" placeholder="AIza... (Gemini API Key — gratis)" style="min-width:140px;max-width:200px;">
   <button class="btn-primary" style="padding:6px 12px;font-size:11px;" onclick="saveSheetConfig()">💾 Simpan</button>
   <button class="btn-ghost" style="padding:6px 10px;font-size:11px;color:rgba(255,255,255,0.8);" onclick="toggleConfigHelp()">❓</button>
   <div class="sync-status">
@@ -680,7 +668,7 @@ window.addEventListener('load', function() {
   <strong>⚙️ Cara Setup:</strong><br>
   1. Buat Google Apps Script → deploy sebagai Web App → paste URL-nya di kolom <em>Apps Script</em><br>
   2. Script mendukung: simpan data ke Sheets, upload foto ke Drive, proxy AI Claude<br>
-  3. Foto akan otomatis diupload ke Google Drive jika Apps Script URL dikonfigurasi<br>
+  3. Foto otomatis diupload ke Google Drive · AI via Gemini (gratis) — dapatkan key di aistudio.google.com<br>
   <span style="color:var(--leaf);font-weight:600;">✅ Rekomendasi: gunakan Apps Script proxy agar foto aman tersimpan di Drive.</span>
 </div>
 
@@ -936,7 +924,7 @@ function loadConfig() {
   localStorage.setItem('bonsai_sheet_url', sheetUrl);
   document.getElementById('sheetUrl').value = sheetUrl;
   testConnection();
-  const key = localStorage.getItem('bonsai_anthropic_key') || '';
+  const key = localStorage.getItem('bonsai_ai_key') || '';
   if (key) document.getElementById('anthropicKey').value = key;
 }
 
@@ -944,7 +932,7 @@ function saveSheetConfig() {
   sheetUrl = document.getElementById('sheetUrl').value.trim();
   localStorage.setItem('bonsai_sheet_url', sheetUrl);
   const key = document.getElementById('anthropicKey').value.trim();
-  if (key) localStorage.setItem('bonsai_anthropic_key', key);
+  if (key) localStorage.setItem('bonsai_ai_key', key);
   if (sheetUrl) testConnection();
   toast('💾 Konfigurasi disimpan');
 }
@@ -1000,16 +988,24 @@ function checkSyncNeeded() {
 
 // ========== DRIVE PHOTO UPLOAD ==========
 async function uploadPhotoToDrive(plantId, base64Data, filename) {
-  if (!sheetUrl) return null;
+  if (!sheetUrl) { console.warn('[Drive] No sheetUrl configured'); return null; }
   try {
+    console.log('[Drive] Uploading', filename, 'for', plantId, '— payload size:', Math.round(base64Data.length/1024)+'KB');
     const res = await fetch(sheetUrl, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ action:'uploadPhoto', plantId, filename, imageData: base64Data })
     });
+    if (!res.ok) { console.error('[Drive] HTTP error:', res.status, res.statusText); return null; }
     const json = await res.json();
-    return json.status === 'ok' ? json.driveUrl : null;
-  } catch(e) { return null; }
+    console.log('[Drive] Response:', JSON.stringify(json));
+    if (json.status === 'ok') return json.driveUrl;
+    console.error('[Drive] Upload failed:', json.error || 'unknown');
+    return null;
+  } catch(e) {
+    console.error('[Drive] Fetch error:', e.message);
+    return null;
+  }
 }
 
 // Compress + convert photo to base64
@@ -1097,20 +1093,29 @@ async function savePlant() {
 
   let driveUrl = editingId ? (plants.find(p => p.id === editingId)?.drivePhotoUrl || null) : null;
 
-  // Upload foto baru ke Drive jika ada file baru dan Ada Apps Script URL
+  // Upload foto baru ke Drive
   if (currentPhotoFile && sheetUrl) {
-    document.getElementById('driveUploadBar').classList.add('show');
-    document.getElementById('driveUploadText').textContent = 'Mengupload foto ke Google Drive...';
-    const compressed = await compressPhoto(currentPhotoFile);
-    const filename = `${id}_main_${Date.now()}.jpg`;
-    driveUrl = await uploadPhotoToDrive(id, compressed, filename);
-    if (driveUrl) {
-      document.getElementById('driveUploadText').textContent = '✅ Foto tersimpan di Drive!';
-      setTimeout(() => document.getElementById('driveUploadBar').classList.remove('show'), 2000);
-      currentPhoto = driveUrl; // Use Drive URL as main photo
-    } else {
-      document.getElementById('driveUploadBar').classList.remove('show');
-      // Fall through — keep base64 as fallback
+    const bar = document.getElementById('driveUploadBar');
+    const barText = document.getElementById('driveUploadText');
+    bar.classList.add('show');
+    barText.textContent = '📤 Mengkompresi & mengupload ke Drive...';
+    try {
+      const compressed = await compressPhoto(currentPhotoFile, 800, 0.75);
+      const filename = `${id}_main_${Date.now()}.jpg`;
+      barText.textContent = `📤 Uploading ${filename}...`;
+      driveUrl = await uploadPhotoToDrive(id, compressed, filename);
+      if (driveUrl) {
+        barText.textContent = '✅ Foto tersimpan di Drive!';
+        currentPhoto = driveUrl;
+        setTimeout(() => bar.classList.remove('show'), 2500);
+      } else {
+        barText.textContent = '⚠️ Drive upload gagal — foto tersimpan lokal';
+        setTimeout(() => bar.classList.remove('show'), 3000);
+        // currentPhoto tetap base64 sebagai fallback
+      }
+    } catch(e) {
+      console.error('[savePlant] upload error:', e);
+      bar.classList.remove('show');
     }
   }
 
@@ -1512,7 +1517,7 @@ function openDetail(id) {
     <!-- QR CODE SECTION -->
     <div class="section-title">📱 QR Code Label</div>
     <div class="qr-section">
-      <canvas id="qrCanvas_${p.id}"></canvas>
+      <div id="qrCanvas_${p.id}" style="display:inline-block;border-radius:8px;overflow:hidden;border:3px solid var(--forest);"></div>
       <div class="qr-info">
         <div class="qr-id">${p.id}</div>
         <div class="qr-tags">
@@ -1573,68 +1578,31 @@ function openDetail(id) {
 
 // ========== QR CODE GENERATION ==========
 function generateQRInDetail(plantId) {
-  const canvas = document.getElementById(`qrCanvas_${plantId}`);
-  if (!canvas) return;
-
-  // Method A: qrcode npm package (QRCode.toCanvas)
-  if (typeof QRCode !== 'undefined' && typeof QRCode.toCanvas === 'function') {
-    QRCode.toCanvas(canvas, plantId, {
-      width: 160, margin: 2, errorCorrectionLevel: 'M',
-      color: { dark: '#1a3a2a', light: '#ffffff' }
-    }, (err) => {
-      if (err) { console.warn('QRCode.toCanvas error:', err); generateQRFallback(canvas, plantId); }
+  const el = document.getElementById('qrCanvas_' + plantId);
+  if (!el) return;
+  el.innerHTML = '';
+  if (typeof QRCode === 'undefined') {
+    el.innerHTML = '<div style="width:160px;height:160px;display:flex;align-items:center;justify-content:center;background:#f0f4f1;font-size:11px;color:#888;text-align:center;padding:8px;border-radius:4px;">Library QR belum load.<br>Refresh halaman.</div>';
+    return;
+  }
+  try {
+    new QRCode(el, {
+      text: plantId,
+      width: 160, height: 160,
+      colorDark: '#1a3a2a', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
     });
-    return;
+  } catch(e) {
+    console.error('[QR] generate error:', e);
+    el.innerHTML = '<div style="width:160px;height:160px;display:flex;align-items:center;justify-content:center;background:#f0f4f1;font-size:12px;font-weight:700;color:#1a3a2a;font-family:monospace;">' + plantId + '</div>';
   }
-
-  // Method B: qrcodejs (constructor style — QRCode(element, options))
-  if (typeof QRCode !== 'undefined' && typeof QRCode === 'function') {
-    // qrcodejs works on divs, not canvas — wrap it
-    const div = document.createElement('div');
-    div.style.cssText = 'position:absolute;opacity:0;pointer-events:none;';
-    document.body.appendChild(div);
-    new QRCode(div, { text: plantId, width: 160, height: 160, colorDark: '#1a3a2a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
-    setTimeout(() => {
-      const img = div.querySelector('img');
-      if (img) {
-        const ctx = canvas.getContext('2d');
-        canvas.width = 160; canvas.height = 160;
-        const i = new Image();
-        i.onload = () => { ctx.drawImage(i, 0, 0, 160, 160); };
-        i.src = img.src;
-      }
-      document.body.removeChild(div);
-    }, 300);
-    return;
-  }
-
-  // Method C: Manual fallback pakai canvas
-  generateQRFallback(canvas, plantId);
-}
-
-function generateQRFallback(canvas, text) {
-  // Simple visual placeholder kalau semua library gagal
-  const ctx = canvas.getContext('2d');
-  canvas.width = 160; canvas.height = 160;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, 160, 160);
-  ctx.fillStyle = '#1a3a2a';
-  ctx.fillRect(0, 0, 160, 6);
-  ctx.fillRect(0, 154, 160, 6);
-  ctx.font = 'bold 13px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(text, 80, 76);
-  ctx.font = '10px sans-serif';
-  ctx.fillStyle = '#7fb08a';
-  ctx.fillText('QR Code', 80, 96);
-  ctx.fillText('(load library)', 80, 112);
 }
 
 // ========== QR LABEL DOWNLOAD ==========
 async function downloadQRLabel(id) {
   const p = plants.find(x => x.id === id);
   if (!p) return;
-  if (typeof QRCode === 'undefined') { toast('⚠️ Library QR Code belum load', 'warn'); return; }
+  if (typeof QRCode === 'undefined') { toast('⚠️ Library QR Code belum load, refresh halaman', 'warn'); return; }
 
   const W = 360, H = 220;
   const canvas = document.getElementById('labelCanvas');
@@ -1689,24 +1657,33 @@ async function downloadQRLabel(id) {
 
   // QR Code (right side)
   const qrTempCanvas = document.createElement('canvas');
-  // Generate QR ke canvas sementara
+  // Generate QR ke div sementara lalu ambil image-nya
   await new Promise((resolve) => {
-    if (typeof QRCode !== 'undefined' && typeof QRCode.toCanvas === 'function') {
-      QRCode.toCanvas(qrTempCanvas, p.id, { width: 130, color: { dark: '#1a3a2a', light: '#ffffff' }, margin: 1, errorCorrectionLevel: 'M' }, () => resolve());
-    } else if (typeof QRCode !== 'undefined' && typeof QRCode === 'function') {
-      const div = document.createElement('div');
-      div.style.cssText = 'position:absolute;opacity:0;pointer-events:none;';
-      document.body.appendChild(div);
-      new QRCode(div, { text: p.id, width: 130, height: 130, colorDark: '#1a3a2a', colorLight: '#ffffff' });
-      setTimeout(() => {
-        const img = div.querySelector('img');
-        if (img) { qrTempCanvas.width = 130; qrTempCanvas.height = 130; const i = new Image(); i.onload = () => { qrTempCanvas.getContext('2d').drawImage(i,0,0,130,130); resolve(); }; i.src = img.src; }
-        else resolve();
-        document.body.removeChild(div);
-      }, 400);
-    } else { resolve(); }
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+    document.body.appendChild(tempDiv);
+    try {
+      new QRCode(tempDiv, { text: p.id, width: 130, height: 130, colorDark: '#1a3a2a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    } catch(e) { document.body.removeChild(tempDiv); resolve(); return; }
+    setTimeout(() => {
+      const qrImg = tempDiv.querySelector('img');
+      if (qrImg && qrImg.src) {
+        const i = new Image();
+        i.crossOrigin = 'anonymous';
+        i.onload = () => {
+          qrTempCanvas.width = 130; qrTempCanvas.height = 130;
+          qrTempCanvas.getContext('2d').drawImage(i, 0, 0, 130, 130);
+          resolve();
+        };
+        i.onerror = () => resolve();
+        i.src = qrImg.src;
+      } else resolve();
+      setTimeout(() => { try { document.body.removeChild(tempDiv); } catch(e){} }, 100);
+    }, 500);
   });
-  if (qrTempCanvas.width > 0) ctx.drawImage(qrTempCanvas, W - 144, 8, 130, 130);
+  if (qrTempCanvas.width > 0 && qrTempCanvas.height > 0) {
+    ctx.drawImage(qrTempCanvas, W - 144, 8, 130, 130);
+  }
 
   // Bonsai emoji icon
   ctx.font = '50px serif';
@@ -1772,7 +1749,7 @@ async function fetchAiWatering() {
   showAiPanel('Memuat rekomendasi AI...', true);
 
   const proxyUrl = sheetUrl;
-  const apiKey = localStorage.getItem('bonsai_anthropic_key');
+  const apiKey = localStorage.getItem('bonsai_ai_key');
   const prompt = `Berikan rekomendasi penyiraman untuk bonsai ${species} di iklim tropis Indonesia. Sertakan: (1) frekuensi siram ideal dalam hari, (2) tips musim kemarau vs hujan, (3) tanda kelebihan atau kekurangan air. Maksimal 5 kalimat pendek.`;
   const system = 'Kamu adalah ahli botani bonsai berpengalaman. Jawab dalam Bahasa Indonesia, singkat dan praktis. Mulai langsung dengan angka frekuensi siram. Gunakan emoji untuk keterbacaan.';
 
@@ -1784,13 +1761,20 @@ async function fetchAiWatering() {
       text = json.text || null;
     } catch(e) {}
   }
-  if (!text && apiKey && (location.protocol === 'file:' || location.hostname === 'localhost')) {
+  if (!text && apiKey) { // Gemini mendukung CORS — bisa langsung dari browser
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST', headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:400, system, messages:[{role:'user',content:prompt}] })
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const res = await fetch(geminiUrl, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents:[{ parts:[{ text: system + '\n\n' + prompt }] }],
+          generationConfig:{ maxOutputTokens:400, temperature:0.7 }
+        })
       });
-      if (res.ok) { const data = await res.json(); text = data?.content?.[0]?.text || null; }
+      if (res.ok) {
+        const data = await res.json();
+        text = data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
+      }
     } catch(e) {}
   }
 
@@ -1890,11 +1874,16 @@ function onQRDetected(text) {
   if (!text || !scannerActive) return;
   document.getElementById('scanner-status').textContent = `✅ Terdeteksi: ${text}`;
   document.getElementById('qrInput').value = text;
-  searchByQR(text);
-  navigator.vibrate && navigator.vibrate([100,50,100]);
-  toast(`✅ QR: ${text}`);
-  const p = plants.find(x => x.id === text);
-  if (p) setTimeout(() => stopScanner(), 1500);
+  navigator.vibrate && navigator.vibrate([100, 50, 100]);
+  const p = plants.find(x => x.id === text.toUpperCase());
+  if (p) {
+    stopScanner();
+    toast(`✅ Ditemukan: ${p.name}`);
+    setTimeout(() => openDetail(p.id), 400); // langsung buka detail popup
+  } else {
+    searchByQR(text);
+    toast(`⚠️ ID "${text}" tidak ada di koleksi`, 'warn');
+  }
 }
 
 function stopScanner() {
