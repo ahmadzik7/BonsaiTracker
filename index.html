@@ -10,13 +10,13 @@
 <meta name="theme-color" content="#1a3a2a">
 <meta name="description" content="Monitor dan tracking pohon bonsai koleksimu">
 <title>Bonsai Garden Tracker</title>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
 
-
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=Libre+Barcode+128+Text&display=swap" rel="stylesheet">
-<!-- html5-qrcode scanner — reliable CDN -->
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- html5-qrcode scanner -->
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<!-- QRCode generator -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
 <style>
   :root {
     --forest: #1a3a2a;
@@ -333,194 +333,288 @@
   .photo-options { display: flex; gap: 8px; margin-bottom: 8px; }
   .photo-opt-btn {
     flex: 1; padding: 9px; border: 1.5px solid rgba(74,140,92,0.25); border-radius: 12px;
-    background: white; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 12px;
-    font-weight: 500; color: var(--moss); display: flex; align-items: center; justify-content: center;
-    gap: 6px; transition: all 0.2s;
+    background: var(--dew); font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+    color: var(--moss); cursor: pointer; transition: all 0.2s; text-align: center;
   }
-  .photo-opt-btn:hover { background: var(--dew); border-color: var(--leaf); }
+  .photo-opt-btn:hover { background: rgba(74,140,92,0.15); border-color: var(--leaf); }
   .photo-upload-area {
-    border: 2px dashed rgba(74,140,92,0.35); border-radius: 16px; padding: 20px;
-    text-align: center; cursor: pointer; transition: all 0.2s; background: var(--dew); position: relative;
+    border: 2px dashed rgba(74,140,92,0.3); border-radius: 14px; overflow: hidden;
+    position: relative; min-height: 110px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; cursor: pointer;
   }
-  .photo-upload-area:hover { border-color: var(--leaf); }
-  .photo-upload-area.has-image { padding: 0; border-style: solid; overflow: hidden; }
-  .photo-upload-area img { width: 100%; height: 160px; object-fit: cover; display: block; border-radius: 14px; }
-  .photo-upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; z-index: 2; }
-  .upload-icon { font-size: 32px; margin-bottom: 6px; }
-  .upload-text { font-size: 12px; color: var(--sage); font-weight: 500; }
-  .upload-sub { font-size: 10px; color: var(--mist); margin-top: 3px; }
+  .photo-upload-area:hover { border-color: var(--leaf); background: rgba(74,140,92,0.03); }
+  .photo-upload-area.has-image { border-style: solid; border-color: rgba(74,140,92,0.3); }
+  .upload-icon { font-size: 28px; margin-bottom: 6px; }
+  .upload-text { font-size: 13px; font-weight: 600; color: var(--moss); }
+  .upload-sub { font-size: 11px; color: var(--sage); margin-top: 3px; }
+  #photoPreview { text-align: center; padding: 20px; }
+  .drive-indicator {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(74,140,92,0.08); border-radius: 8px;
+    padding: 6px 10px; font-size: 11px; color: var(--moss); margin-top: 6px;
+  }
 
-  /* ── DETAIL MODAL ── */
-  .detail-hero { border-radius: 14px; overflow: hidden; margin-bottom: 16px; position: relative; }
-  .detail-hero img { width: 100%; height: 200px; object-fit: cover; display: block; }
-  .detail-hero .img-placeholder {
-    width: 100%; height: 200px;
-    background: linear-gradient(135deg, var(--dew), var(--mist));
-    display: flex; align-items: center; justify-content: center; font-size: 70px;
+  /* ── QR CODE ── */
+  .qr-section {
+    background: linear-gradient(135deg, var(--dew), rgba(200,168,75,0.08));
+    border: 1px solid rgba(74,140,92,0.15);
+    border-radius: 18px; padding: 20px; text-align: center; margin: 14px 0;
   }
-  .detail-badges { position: absolute; top: 12px; left: 12px; display: flex; gap: 7px; }
-  .detail-badge {
-    background: rgba(26,58,42,0.82); color: white;
-    padding: 4px 11px; border-radius: 20px; font-size: 11px; font-weight: 600;
-  }
-  .detail-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
-  .detail-stat { background: var(--dew); border-radius: 14px; padding: 12px; text-align: center; border: 1px solid rgba(74,140,92,0.12); }
-  .detail-stat .icon { font-size: 20px; margin-bottom: 5px; }
-  .detail-stat .val { font-size: 15px; font-weight: 700; color: var(--forest); }
-  .detail-stat .lbl { font-size: 9px; color: var(--sage); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .section-title { font-family: 'Playfair Display', serif; font-size: 14px; color: var(--forest); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-weight: 600; }
-  .section-title::after { content: ''; flex: 1; height: 1px; background: rgba(74,140,92,0.15); }
-
-  /* ── BARCODE ── */
-  .barcode-section { background: white; border: 1px solid rgba(74,140,92,0.15); border-radius: 16px; padding: 18px; text-align: center; margin-bottom: 14px; }
-  .barcode-display { font-family: 'Libre Barcode 128 Text', cursive; font-size: 48px; line-height: 1.2; color: var(--forest); letter-spacing: 2px; margin: 6px 0; }
-  .barcode-id { font-size: 10px; color: var(--sage); letter-spacing: 3px; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; }
-  .barcode-info { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
-  .barcode-tag { background: var(--dew); border-radius: 8px; padding: 4px 10px; font-size: 10px; color: var(--moss); font-weight: 500; }
-  .print-btn {
-    background: var(--forest); color: white; border: none;
-    padding: 9px 18px; border-radius: 10px; font-family: 'DM Sans', sans-serif;
-    font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 12px;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
-  }
-  .print-btn:hover { background: var(--moss); }
+  .qr-section canvas { border-radius: 10px; border: 3px solid var(--forest); }
+  .qr-info { margin-top: 12px; }
+  .qr-id { font-size: 18px; font-weight: 700; color: var(--forest); letter-spacing: 2px; font-family: monospace; }
+  .qr-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
+  .qr-tag { font-size: 10px; background: rgba(74,140,92,0.1); color: var(--moss); padding: 3px 10px; border-radius: 20px; font-weight: 500; }
   .download-btn {
-    background: var(--leaf); color: white; border: none;
-    padding: 9px 18px; border-radius: 10px; font-family: 'DM Sans', sans-serif;
-    font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 12px; margin-left: 8px;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, var(--forest), var(--moss));
+    color: white; border: none; border-radius: 12px;
+    padding: 10px 20px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; margin-top: 12px; display: inline-flex; align-items: center; gap: 6px;
   }
-  .download-btn:hover { background: var(--moss); }
+  .download-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(26,58,42,0.25); }
 
   /* ── HISTORY ── */
-  .history-timeline { position: relative; padding-left: 18px; }
-  .history-timeline::before { content: ''; position: absolute; left: 5px; top: 0; bottom: 0; width: 1.5px; background: rgba(74,140,92,0.2); }
-  .history-item { position: relative; padding: 0 0 12px 16px; font-size: 12px; }
-  .history-item::before { content: ''; position: absolute; left: -8px; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--leaf); border: 2px solid white; box-shadow: 0 0 0 2px rgba(74,140,92,0.2); }
-  .history-date { font-size: 10px; color: var(--sage); font-weight: 500; margin-bottom: 1px; }
-  .history-text { font-weight: 500; color: var(--forest); }
+  .section-title {
+    font-size: 11px; font-weight: 700; color: var(--moss);
+    text-transform: uppercase; letter-spacing: 1px; margin: 16px 0 10px;
+  }
+  .history-timeline { display: flex; flex-direction: column; gap: 0; }
+  .history-item {
+    display: flex; gap: 12px; padding: 10px 0;
+    border-bottom: 1px solid rgba(74,140,92,0.08);
+    position: relative;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--leaf); flex-shrink: 0; margin-top: 5px;
+    position: relative; z-index: 1;
+  }
+  .history-dot.water { background: #5ba3c9; }
+  .history-dot.photo { background: var(--gold); }
+  .history-dot.prune { background: var(--accent); }
+  .history-line {
+    position: absolute; left: 3px; top: 18px; bottom: -8px;
+    width: 2px; background: rgba(74,140,92,0.12);
+  }
+  .history-item:last-child .history-line { display: none; }
+  .history-content { flex: 1; }
+  .history-date { font-size: 10px; color: var(--sage); margin-bottom: 2px; }
+  .history-text { font-size: 12px; color: var(--forest); line-height: 1.5; }
+  .history-photo-thumb { width: 60px; height: 60px; border-radius: 8px; object-fit: cover; flex-shrink: 0; cursor: pointer; border: 2px solid rgba(74,140,92,0.2); }
 
-  /* ── SCANNER VIEW ── */
+  /* ── ADD HISTORY FORM ── */
+  .add-history-section {
+    background: rgba(74,140,92,0.04); border: 1.5px dashed rgba(74,140,92,0.25);
+    border-radius: 14px; padding: 14px; margin-top: 12px;
+  }
+  .add-history-section .section-title { margin: 0 0 10px; }
+  .history-type-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+  .htype-btn {
+    padding: 7px 4px; border: 1.5px solid rgba(74,140,92,0.2); border-radius: 10px;
+    background: white; font-size: 10px; font-weight: 600; color: var(--moss);
+    cursor: pointer; transition: all 0.2s; text-align: center; line-height: 1.3;
+  }
+  .htype-btn:hover, .htype-btn.selected { background: var(--leaf); color: white; border-color: var(--leaf); }
+  .history-input-row { display: flex; gap: 8px; align-items: flex-end; }
+  .history-input-row input, .history-input-row textarea {
+    flex: 1; border: 1.5px solid rgba(74,140,92,0.2); border-radius: 10px;
+    padding: 8px 12px; font-family: 'DM Sans', sans-serif; font-size: 12px;
+    color: var(--forest); outline: none; resize: none;
+  }
+  .history-input-row input:focus, .history-input-row textarea:focus { border-color: var(--leaf); }
+  .save-history-btn {
+    background: var(--leaf); color: white; border: none; border-radius: 10px;
+    padding: 8px 14px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  }
+
+  /* ── PHOTO TIMELINE ── */
+  .photo-timeline-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;
+    margin-top: 10px;
+  }
+  .photo-timeline-item {
+    position: relative; border-radius: 12px; overflow: hidden;
+    aspect-ratio: 1; cursor: pointer;
+    border: 2px solid rgba(74,140,92,0.1);
+    transition: all 0.2s;
+  }
+  .photo-timeline-item:hover { transform: scale(1.03); border-color: var(--leaf); }
+  .photo-timeline-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-timeline-date {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(26,58,42,0.85));
+    color: white; font-size: 9px; font-weight: 600;
+    padding: 16px 6px 5px; text-align: center;
+  }
+  .photo-timeline-item.main-photo::after {
+    content: '★';
+    position: absolute; top: 5px; right: 5px;
+    background: var(--gold); color: var(--forest);
+    width: 16px; height: 16px; border-radius: 50%;
+    font-size: 9px; display: flex; align-items: center; justify-content: center;
+  }
+  .photo-lightbox {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+    z-index: 2000; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px; padding: 20px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .photo-lightbox.open { opacity: 1; pointer-events: all; }
+  .photo-lightbox img { max-width: 100%; max-height: 70vh; border-radius: 12px; object-fit: contain; }
+  .photo-lightbox .lb-caption { color: white; font-size: 13px; text-align: center; }
+  .photo-lightbox .lb-close {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(255,255,255,0.15); color: white; border: none;
+    width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px;
+  }
+  .add-timeline-photo-btn {
+    border: 2px dashed rgba(74,140,92,0.3); border-radius: 12px;
+    aspect-ratio: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 4px;
+    background: var(--dew); cursor: pointer; transition: all 0.2s;
+    font-size: 10px; color: var(--sage); font-weight: 600;
+  }
+  .add-timeline-photo-btn:hover { border-color: var(--leaf); background: rgba(74,140,92,0.08); color: var(--moss); }
+  .add-timeline-photo-btn .icon { font-size: 24px; }
+
+  /* ── DETAIL MODAL SECTIONS ── */
+  .detail-hero { position: relative; border-radius: 16px; overflow: hidden; margin-bottom: 16px; background: var(--dew); min-height: 180px; }
+  .img-placeholder { font-size: 80px; text-align: center; padding: 40px 20px; }
+  .detail-badges { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .detail-badge { background: rgba(26,58,42,0.85); color: white; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .detail-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .detail-stat { background: var(--dew); border-radius: 12px; padding: 12px; text-align: center; }
+  .detail-stat .icon { font-size: 18px; }
+  .detail-stat .val { font-size: 14px; font-weight: 700; color: var(--forest); margin-top: 4px; }
+  .detail-stat .lbl { font-size: 9px; color: var(--sage); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  /* ── SCANNER ── */
   .scanner-area {
-    background: var(--forest); border-radius: 20px; padding: 30px 24px;
-    text-align: center; position: relative; overflow: hidden; color: white; margin-bottom: 20px;
+    background: white; border-radius: 20px; overflow: hidden;
+    box-shadow: 0 4px 20px rgba(26,58,42,0.1); border: 1px solid rgba(74,140,92,0.15);
   }
   #video-container {
-    position: relative; width: 260px; height: 200px; margin: 0 auto 16px;
-    border-radius: 16px; overflow: hidden; background: #000;
+    position: relative; width: 100%; height: 280px; background: #0a1a10; overflow: hidden;
   }
-  #scanner-video { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 16px; }
+  #scanner-video { width: 100%; height: 100%; object-fit: cover; display: block; }
   .scanner-overlay {
-    position: absolute; inset: 0; border-radius: 16px;
-    border: 3px solid rgba(255,255,255,0.3);
-    display: flex; align-items: center; justify-content: center;
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   }
   .scan-line {
-    position: absolute; left: 10px; right: 10px; height: 2px;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    animation: scan-anim 2s linear infinite; top: 0;
+    position: absolute; left: 15%; right: 15%; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--leaf), transparent);
+    animation: scanMove 2s ease-in-out infinite;
   }
-  @keyframes scan-anim { 0% { top: 10%; } 100% { top: 90%; } }
-  .corner { position: absolute; width: 22px; height: 22px; border-color: var(--gold); border-style: solid; border-width: 0; }
-  .corner.tl { top: 8px; left: 8px; border-top-width: 3px; border-left-width: 3px; border-radius: 3px 0 0 0; }
-  .corner.tr { top: 8px; right: 8px; border-top-width: 3px; border-right-width: 3px; border-radius: 0 3px 0 0; }
-  .corner.bl { bottom: 8px; left: 8px; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 3px; }
-  .corner.br { bottom: 8px; right: 8px; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 3px 0; }
-  #scanner-status { font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 12px; min-height: 18px; }
-  .scanner-controls { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  @keyframes scanMove { 0%,100% { top: 20%; } 50% { top: 80%; } }
+  .corner {
+    position: absolute; width: 24px; height: 24px;
+    border-color: var(--gold); border-style: solid;
+  }
+  .corner.tl { top: 15%; left: 15%; border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+  .corner.tr { top: 15%; right: 15%; border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+  .corner.bl { bottom: 15%; left: 15%; border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+  .corner.br { bottom: 15%; right: 15%; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+  #scanner-status { padding: 12px 20px; font-size: 13px; color: var(--moss); font-weight: 500; text-align: center; border-top: 1px solid rgba(74,140,92,0.1); }
+  .scanner-controls { display: flex; gap: 10px; padding: 12px 20px; justify-content: center; }
   .scan-btn {
-    background: var(--gold); color: var(--forest); border: none;
-    padding: 10px 20px; border-radius: 12px; font-family: 'DM Sans', sans-serif;
-    font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s;
-    display: flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, var(--moss), var(--leaf)); color: white;
+    border: none; border-radius: 12px; padding: 10px 24px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
   }
-  .scan-btn:hover { background: #d4b55a; }
-  .scan-btn.stop { background: rgba(224,120,64,0.85); color: white; }
-  .manual-input {
-    display: flex; gap: 8px; margin-top: 12px; align-items: center;
-  }
+  .scan-btn.stop { background: linear-gradient(135deg, #8b3a2a, #c0392b); }
+  .manual-input { display: flex; gap: 8px; padding: 0 20px 16px; }
   .manual-input input {
-    flex: 1; padding: 10px 14px; border-radius: 12px;
-    border: 2px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.1);
-    color: white; font-family: 'DM Sans', sans-serif; font-size: 13px;
-    outline: none; letter-spacing: 2px;
+    flex: 1; border: 1.5px solid rgba(74,140,92,0.2); border-radius: 10px;
+    padding: 9px 12px; font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
   }
-  .manual-input input::placeholder { color: rgba(255,255,255,0.35); letter-spacing: 1px; }
-  .manual-input input:focus { border-color: var(--gold); }
+  .manual-input input:focus { border-color: var(--leaf); }
   .manual-input button {
-    padding: 10px 18px; background: rgba(255,255,255,0.15); color: white;
-    border: 1px solid rgba(255,255,255,0.3); border-radius: 12px;
-    font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.2s;
+    background: var(--leaf); color: white; border: none; border-radius: 10px;
+    padding: 9px 16px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer;
   }
-  .manual-input button:hover { background: rgba(255,255,255,0.25); }
-  #scanResult { margin-top: 16px; }
-
-  /* ── WATERING ── */
-  .notif-list { display: flex; flex-direction: column; gap: 10px; }
-  .notif-item {
-    background: white; border-radius: 14px; padding: 14px 16px;
-    display: flex; align-items: flex-start; gap: 12px;
-    border: 1px solid rgba(74,140,92,0.12);
-    box-shadow: 0 2px 8px rgba(26,58,42,0.04);
-  }
-  .notif-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
-  .notif-title { font-weight: 600; font-size: 13px; color: var(--forest); }
-  .notif-desc { font-size: 11px; color: var(--sage); margin-top: 3px; }
-  .notif-time { font-size: 11px; color: var(--mist); margin-top: 4px; }
 
   /* ── STATS ── */
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-bottom: 24px; }
-  .stats-card { background: white; border-radius: 16px; padding: 18px; box-shadow: 0 2px 10px rgba(26,58,42,0.06); border: 1px solid rgba(74,140,92,0.1); display: flex; align-items: center; gap: 12px; }
-  .stats-icon { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .stats-card {
+    background: white; border-radius: 16px; padding: 18px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 2px 10px rgba(26,58,42,0.06); border: 1px solid rgba(74,140,92,0.1);
+  }
+  .stats-icon { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
   .bg-green { background: rgba(74,140,92,0.12); }
   .bg-blue { background: rgba(91,163,201,0.12); }
   .bg-orange { background: rgba(224,120,64,0.12); }
   .bg-gold { background: rgba(200,168,75,0.12); }
-  .stats-info .num { font-size: 24px; font-weight: 700; color: var(--forest); line-height: 1; }
-  .stats-info .lbl { font-size: 10px; color: var(--sage); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .distribution-list { display: flex; flex-direction: column; gap: 9px; }
-  .dist-item { display: flex; align-items: center; gap: 10px; }
-  .dist-name { font-size: 11px; font-weight: 500; width: 110px; flex-shrink: 0; }
-  .dist-bar-track { flex: 1; background: rgba(74,140,92,0.1); border-radius: 20px; height: 6px; overflow: hidden; }
-  .dist-bar-fill { height: 100%; border-radius: 20px; background: linear-gradient(90deg, var(--sage), var(--leaf)); }
-  .dist-count { font-size: 10px; color: var(--sage); width: 20px; text-align: right; }
+  .stats-info .num { font-size: 26px; font-weight: 700; color: var(--forest); line-height: 1; }
+  .stats-info .lbl { font-size: 11px; color: var(--sage); margin-top: 3px; }
+  .distribution-list { display: flex; flex-direction: column; gap: 8px; }
+  .dist-item { display: flex; align-items: center; gap: 8px; }
+  .dist-name { font-size: 11px; color: var(--forest); min-width: 80px; font-weight: 500; }
+  .dist-bar-track { flex: 1; height: 6px; background: rgba(74,140,92,0.1); border-radius: 10px; overflow: hidden; }
+  .dist-bar-fill { height: 100%; background: linear-gradient(90deg, var(--sage), var(--leaf)); border-radius: 10px; transition: width 0.5s; }
+  .dist-count { font-size: 11px; color: var(--sage); font-weight: 600; min-width: 16px; text-align: right; }
 
-  /* ── EMPTY ── */
-  .empty-state { text-align: center; padding: 50px 20px; color: var(--sage); }
-  .empty-state .icon { font-size: 56px; margin-bottom: 14px; }
-  .empty-state h3 { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--moss); margin-bottom: 6px; }
-  .empty-state p { font-size: 12px; line-height: 1.7; max-width: 280px; margin: 0 auto 18px; }
+  /* ── NOTIFICATIONS ── */
+  .notif-list { display: flex; flex-direction: column; gap: 10px; }
+  .notif-item {
+    background: white; border-radius: 16px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 2px 8px rgba(26,58,42,0.05); border: 1px solid rgba(74,140,92,0.1);
+  }
+  .notif-icon { font-size: 24px; flex-shrink: 0; }
+  .notif-title { font-weight: 600; font-size: 13px; color: var(--forest); }
+  .notif-desc { font-size: 11px; color: var(--sage); margin-top: 2px; }
+  .notif-time { font-size: 11px; margin-top: 4px; color: var(--moss); }
+
+  /* ── EMPTY STATE ── */
+  .empty-state { text-align: center; padding: 60px 20px; }
+  .empty-state .icon { font-size: 60px; margin-bottom: 16px; }
+  .empty-state h3 { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--forest); margin-bottom: 8px; }
+  .empty-state p { font-size: 13px; color: var(--sage); margin-bottom: 20px; }
 
   /* ── TOAST ── */
-  .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 5000; display: flex; flex-direction: column; gap: 8px; }
   .toast {
-    background: var(--forest); color: white; padding: 11px 16px; border-radius: 12px;
-    font-size: 12px; font-weight: 500; box-shadow: 0 8px 24px rgba(26,58,42,0.35);
-    animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
-    display: flex; align-items: center; gap: 8px; max-width: 280px;
+    background: var(--forest); color: white; padding: 10px 16px;
+    border-radius: 12px; font-size: 13px; font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    animation: toastIn 0.3s ease; max-width: 280px;
   }
-  @keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-  @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; pointer-events: none; } }
+  @keyframes toastIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-  /* ── SCROLLBAR ── */
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-thumb { background: var(--mist); border-radius: 3px; }
+  /* ── DRIVE UPLOAD STATUS ── */
+  .drive-upload-bar {
+    display: none; align-items: center; gap: 8px;
+    background: rgba(74,140,92,0.08); border-radius: 10px;
+    padding: 8px 12px; font-size: 11px; color: var(--moss); margin-top: 8px;
+  }
+  .drive-upload-bar.show { display: flex; }
+  .drive-spinner {
+    width: 14px; height: 14px; border: 2px solid rgba(74,140,92,0.3);
+    border-top-color: var(--leaf); border-radius: 50%;
+    animation: spin 0.8s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ── CANVAS hidden (for label gen) ── */
-  #labelCanvas { display: none; }
+  /* ── SPECIES DROPDOWN ── */
+  .species-suggestion {
+    padding: 9px 14px; font-size: 13px; color: var(--forest); cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    transition: background 0.15s;
+  }
+  .species-suggestion:hover { background: var(--dew); }
+  .species-freq { font-size: 10px; color: var(--sage); }
 
-  /* ── RESPONSIVE ── */
-  @media (max-width: 600px) {
-    .header-content { padding: 12px 16px; }
-    .header-stats { gap: 8px; }
-    .stat-chip { padding: 6px 10px; }
-    .stat-chip .num { font-size: 16px; }
-    .nav-tabs { padding: 10px 16px 0; }
-    .content { padding: 16px; }
+  @media (max-width: 480px) {
+    .header-stats { display: none; }
     .form-grid { grid-template-columns: 1fr; }
+    .form-group.full { grid-column: 1; }
     .detail-stats { grid-template-columns: 1fr 1fr; }
-    .logo-text h1 { font-size: 18px; }
-    #video-container { width: 240px; height: 180px; }
+    .history-type-grid { grid-template-columns: repeat(2, 1fr); }
+    .content { padding: 16px; }
   }
 </style>
 </head>
@@ -528,9 +622,8 @@
 
 <!-- INSTALL BANNER -->
 <div id="installBanner">
-  <span>📲</span>
-  <span>Install Bonsai Garden sebagai app di perangkat ini</span>
-  <button id="installBtn">Install App</button>
+  <span>🌿 Install Bonsai Garden sebagai app</span>
+  <button id="installBtn">Install</button>
   <button class="close-banner" onclick="document.getElementById('installBanner').classList.remove('show')">✕</button>
 </div>
 
@@ -539,19 +632,19 @@
   <div class="header-pattern"></div>
   <div class="header-content">
     <div class="logo-area">
-      <div class="logo-icon">🌿</div>
+      <div class="logo-icon">🌳</div>
       <div class="logo-text">
         <h1>Bonsai Garden</h1>
-        <p>Plant Monitor & Tracker</p>
+        <p>Tracker &amp; Monitor</p>
       </div>
     </div>
     <div class="header-stats">
       <div class="stat-chip"><div class="num" id="stat-total">0</div><div class="lbl">Pohon</div></div>
-      <div class="stat-chip"><div class="num" id="stat-water">0</div><div class="lbl">Siram</div></div>
+      <div class="stat-chip"><div class="num" id="stat-water">0</div><div class="lbl">Perlu Siram</div></div>
       <div class="stat-chip"><div class="num" id="stat-species">0</div><div class="lbl">Spesies</div></div>
     </div>
     <div class="header-actions">
-      <button class="btn-ghost" onclick="openTab('scanner')">📷 Scan</button>
+      <button class="btn-ghost" onclick="syncNow()">🔄</button>
       <button class="btn-primary" onclick="openAddModal()">＋ Tambah</button>
     </div>
   </div>
@@ -559,21 +652,31 @@
 
 <!-- CONFIG BANNER -->
 <div class="config-banner">
-  <span>🔗</span>
-  <span style="white-space:nowrap;font-weight:600;">Google Sheets:</span>
-  <input type="text" id="sheetUrl" placeholder="Paste Apps Script Web App URL...">
-  <button class="btn-primary" style="padding:6px 12px;font-size:11px;" onclick="saveSheetConfig()">Simpan</button>
+  <span style="white-space:nowrap;font-weight:600;">⚙️ Apps Script:</span>
+  <input type="text" id="sheetUrl" placeholder="Paste Apps Script Web App URL (Sheets + Drive + AI)...">
+  <span style="white-space:nowrap;font-weight:600;font-size:12px;">API Key:</span>
+  <input type="password" id="anthropicKey" placeholder="sk-ant-... (opsional)" style="min-width:140px;max-width:200px;">
+  <button class="btn-primary" style="padding:6px 12px;font-size:11px;" onclick="saveSheetConfig()">💾 Simpan</button>
+  <button class="btn-ghost" style="padding:6px 10px;font-size:11px;color:rgba(255,255,255,0.8);" onclick="toggleConfigHelp()">❓</button>
   <div class="sync-status">
     <div class="sync-dot offline" id="syncDot"></div>
     <span id="syncText">Belum terhubung</span>
   </div>
 </div>
 
+<div id="configHelp" style="display:none;background:#fffbeb;border-bottom:1px solid rgba(200,168,75,0.4);padding:12px 24px;font-size:12px;color:#6b4c2a;line-height:1.8;position:relative;z-index:8;">
+  <strong>⚙️ Cara Setup:</strong><br>
+  1. Buat Google Apps Script → deploy sebagai Web App → paste URL-nya di kolom <em>Apps Script</em><br>
+  2. Script mendukung: simpan data ke Sheets, upload foto ke Drive, proxy AI Claude<br>
+  3. Foto akan otomatis diupload ke Google Drive jika Apps Script URL dikonfigurasi<br>
+  <span style="color:var(--leaf);font-weight:600;">✅ Rekomendasi: gunakan Apps Script proxy agar foto aman tersimpan di Drive.</span>
+</div>
+
 <!-- NAV TABS -->
 <div class="nav-tabs">
   <button class="tab active" onclick="openTab('garden')" id="tab-garden">🌳 Kebun</button>
   <button class="tab" onclick="openTab('watering')" id="tab-watering">💧 Jadwal Siram</button>
-  <button class="tab" onclick="openTab('scanner')" id="tab-scanner">📱 Scan Barcode</button>
+  <button class="tab" onclick="openTab('scanner')" id="tab-scanner">📱 Scan QR</button>
   <button class="tab" onclick="openTab('stats')" id="tab-stats">📊 Statistik</button>
 </div>
 
@@ -611,12 +714,12 @@
     <div id="wateringList" class="notif-list"></div>
   </div>
 
-  <!-- SCANNER -->
+  <!-- SCANNER QR -->
   <div class="view" id="view-scanner">
     <div style="max-width:500px;margin:0 auto;">
       <div style="text-align:center;margin-bottom:20px;">
-        <h2 style="font-family:'Playfair Display',serif;font-size:20px;color:var(--forest);">📱 Scan Barcode Pohon</h2>
-        <p style="font-size:12px;color:var(--sage);margin-top:3px;">Arahkan kamera ke barcode pada label pot bonsai</p>
+        <h2 style="font-family:'Playfair Display',serif;font-size:20px;color:var(--forest);">📱 Scan QR Code Pohon</h2>
+        <p style="font-size:12px;color:var(--sage);margin-top:3px;">Arahkan kamera ke QR Code pada label pot bonsai</p>
       </div>
       <div class="scanner-area">
         <div id="video-container">
@@ -633,8 +736,8 @@
           <button class="scan-btn stop" id="stopScanBtn" onclick="stopScanner()" style="display:none">⏹ Stop</button>
         </div>
         <div class="manual-input">
-          <input type="text" id="barcodeInput" placeholder="Atau ketik ID pohon..." oninput="searchByBarcode(this.value)">
-          <button onclick="searchByBarcode(document.getElementById('barcodeInput').value)">Cari</button>
+          <input type="text" id="qrInput" placeholder="Atau ketik ID pohon..." oninput="searchByQR(this.value)">
+          <button onclick="searchByQR(document.getElementById('qrInput').value)">Cari</button>
         </div>
       </div>
       <div id="scanResult"></div>
@@ -676,15 +779,9 @@
             <input type="text" id="f-species" placeholder="Ketik nama tanaman..." autocomplete="off"
               oninput="onSpeciesInput(this.value)" onblur="setTimeout(()=>closeSpeciesDrop(),200)">
             <button type="button" id="aiRecBtn" onclick="fetchAiWatering()" title="Cari rekomendasi siram"
-              style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1.5px solid rgba(74,140,92,0.3);background:var(--dew);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
-              onmouseover="this.style.background='rgba(74,140,92,0.15)'" onmouseout="this.style.background='var(--dew)'">🤖</button>
-            <a id="googleSearchBtn" href="#" target="_blank" title="Cari di Google"
-              style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1.5px solid rgba(74,140,92,0.3);background:var(--dew);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;text-decoration:none;transition:all 0.2s;"
-              onmouseover="this.style.background='rgba(74,140,92,0.15)'" onmouseout="this.style.background='var(--dew)'">🔍</a>
+              style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1.5px solid rgba(74,140,92,0.3);background:var(--dew);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;">🤖</button>
           </div>
-          <!-- Dropdown suggestions -->
           <div id="speciesDrop" style="display:none;position:absolute;top:100%;left:0;right:52px;background:white;border:1.5px solid rgba(74,140,92,0.25);border-radius:12px;box-shadow:0 8px 24px rgba(26,58,42,0.12);z-index:200;overflow:hidden;margin-top:4px;"></div>
-          <!-- AI Recommendation panel -->
           <div id="aiRecPanel" style="display:none;margin-top:8px;background:linear-gradient(135deg,rgba(26,58,42,0.04),rgba(74,140,92,0.06));border:1.5px solid rgba(74,140,92,0.2);border-radius:14px;padding:14px;font-size:12px;line-height:1.7;color:var(--forest);"></div>
         </div>
         <div class="form-group"><label>Tanggal Mulai Tanam</label><input type="date" id="f-date"></div>
@@ -703,7 +800,7 @@
         </div>
         <div class="form-group full"><label>Catatan</label><textarea id="f-notes" placeholder="Kondisi, riwayat, karakteristik khusus..."></textarea></div>
         <div class="form-group full">
-          <label>Foto Pohon</label>
+          <label>Foto Utama Pohon</label>
           <div class="photo-options">
             <button class="photo-opt-btn" type="button" onclick="document.getElementById('cameraInput').click()">📷 Kamera</button>
             <button class="photo-opt-btn" type="button" onclick="document.getElementById('galleryInput').click()">🖼️ Galeri</button>
@@ -714,8 +811,12 @@
             <div id="photoPreview">
               <div class="upload-icon">🌱</div>
               <div class="upload-text">Tap untuk upload foto</div>
-              <div class="upload-sub">JPG, PNG, WEBP — max 5MB</div>
+              <div class="upload-sub">JPG, PNG, WEBP — max 5MB · akan diupload ke Drive</div>
             </div>
+          </div>
+          <div class="drive-upload-bar" id="driveUploadBar">
+            <div class="drive-spinner"></div>
+            <span id="driveUploadText">Mengupload ke Google Drive...</span>
           </div>
         </div>
       </div>
@@ -729,7 +830,7 @@
 
 <!-- DETAIL MODAL -->
 <div class="modal-overlay" id="detailModal">
-  <div class="modal">
+  <div class="modal" style="max-width:720px;">
     <div class="modal-header">
       <div class="modal-title" id="detailTitle">Detail Pohon</div>
       <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
@@ -738,21 +839,33 @@
   </div>
 </div>
 
-<!-- HIDDEN CANVAS FOR LABEL GENERATION -->
-<canvas id="labelCanvas"></canvas>
+<!-- PHOTO LIGHTBOX -->
+<div class="photo-lightbox" id="photoLightbox" onclick="closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <img id="lbImg" src="" alt="">
+  <div class="lb-caption" id="lbCaption"></div>
+</div>
+
+<!-- HIDDEN CANVAS FOR QR LABEL -->
+<canvas id="labelCanvas" style="display:none;"></canvas>
 
 <!-- TOAST -->
 <div class="toast-container" id="toastContainer"></div>
+
+<!-- HIDDEN FILE INPUT FOR TIMELINE PHOTO -->
+<input type="file" id="timelinePhotoInput" accept="image/*" capture="environment" style="display:none" onchange="handleTimelinePhoto(this)">
 
 <script>
 // ========== STATE ==========
 let plants = [];
 let editingId = null;
 let currentPhoto = null;
+let currentPhotoFile = null;
 let currentView = 'grid';
-let sheetUrl = '';
+let sheetUrl = 'https://script.google.com/macros/s/AKfycbxGYlIg2_pf5jsk-dPM62b8F747n3jt8zcScHyICe_H63OKz0PcvdnhGK1-LWJQCsvc0w/exec';
 let scannerActive = false;
 let deferredInstallPrompt = null;
+let pendingTimelinePlantId = null;
 
 // ========== PWA INSTALL ==========
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -760,7 +873,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
   deferredInstallPrompt = e;
   document.getElementById('installBanner').classList.add('show');
 });
-
 document.getElementById('installBtn').addEventListener('click', async () => {
   if (!deferredInstallPrompt) return;
   deferredInstallPrompt.prompt();
@@ -771,33 +883,21 @@ document.getElementById('installBtn').addEventListener('click', async () => {
   }
   deferredInstallPrompt = null;
 });
-
 window.addEventListener('appinstalled', () => {
   document.getElementById('installBanner').classList.remove('show');
-  toast('🌿 App terinstall! Buka dari home screen.');
+  toast('🌿 App terinstall!');
 });
 
 // ========== SERVICE WORKER ==========
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Inline SW as blob
     const swCode = `
-const CACHE = 'bonsai-v1';
-const ASSETS = ['./', './index.html'];
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-  self.skipWaiting();
-});
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
-  self.clients.claim();
-});
-self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./index.html'))));
-});`;
-    const blob = new Blob([swCode], {type: 'application/javascript'});
-    const swUrl = URL.createObjectURL(blob);
-    navigator.serviceWorker.register(swUrl).catch(() => {});
+const CACHE='bonsai-v2';const ASSETS=['./'];
+self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting();});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});
+self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>caches.match('./index.html'))));});`;
+    const blob = new Blob([swCode], {type:'application/javascript'});
+    navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
   });
 }
 
@@ -813,15 +913,34 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ========== CONFIG & SYNC ==========
+const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxGYlIg2_pf5jsk-dPM62b8F747n3jt8zcScHyICe_H63OKz0PcvdnhGK1-LWJQCsvc0w/exec';
+
 function loadConfig() {
-  sheetUrl = localStorage.getItem('bonsai_sheet_url') || '';
-  if (sheetUrl) { document.getElementById('sheetUrl').value = sheetUrl; testConnection(); }
+  sheetUrl = localStorage.getItem('bonsai_sheet_url') || DEFAULT_SHEET_URL;
+  localStorage.setItem('bonsai_sheet_url', sheetUrl);
+  document.getElementById('sheetUrl').value = sheetUrl;
+  testConnection();
+  const key = localStorage.getItem('bonsai_anthropic_key') || '';
+  if (key) document.getElementById('anthropicKey').value = key;
 }
 
 function saveSheetConfig() {
   sheetUrl = document.getElementById('sheetUrl').value.trim();
   localStorage.setItem('bonsai_sheet_url', sheetUrl);
-  if (sheetUrl) { testConnection(); toast('🔗 Google Sheets disimpan'); }
+  const key = document.getElementById('anthropicKey').value.trim();
+  if (key) localStorage.setItem('bonsai_anthropic_key', key);
+  if (sheetUrl) testConnection();
+  toast('💾 Konfigurasi disimpan');
+}
+
+function toggleConfigHelp() {
+  const el = document.getElementById('configHelp');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function syncNow() {
+  if (sheetUrl) testConnection();
+  else toast('⚠️ Belum ada Apps Script URL', 'warn');
 }
 
 function testConnection() {
@@ -848,19 +967,53 @@ async function fetchFromSheet() {
 async function pushToSheet(plant) {
   if (!sheetUrl) return;
   try {
-    await fetch(sheetUrl, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'upsert', data: plant}), mode: 'no-cors' });
+    await fetch(sheetUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'upsert', data: plant}), mode:'no-cors' });
     setSyncStatus(true);
   } catch(e) { setSyncStatus(false); }
 }
 
 async function deleteFromSheet(id) {
   if (!sheetUrl) return;
-  try { await fetch(sheetUrl, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({action:'delete', id}), mode: 'no-cors' }); }
+  try { await fetch(sheetUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'delete', id}), mode:'no-cors' }); }
   catch(e) {}
 }
 
 function checkSyncNeeded() {
-  if (sheetUrl) fetchFromSheet().then(data => { if (data) { plants = data; saveLocalData(); renderAll(); setSyncStatus(true); } }).catch(() => {});
+  if (sheetUrl) fetchFromSheet().then(data => { if (data) { plants = data; saveLocalData(); renderAll(); setSyncStatus(true); }}).catch(()=>{});
+}
+
+// ========== DRIVE PHOTO UPLOAD ==========
+async function uploadPhotoToDrive(plantId, base64Data, filename) {
+  if (!sheetUrl) return null;
+  try {
+    const res = await fetch(sheetUrl, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'uploadPhoto', plantId, filename, imageData: base64Data })
+    });
+    const json = await res.json();
+    return json.status === 'ok' ? json.driveUrl : null;
+  } catch(e) { return null; }
+}
+
+// Compress + convert photo to base64
+async function compressPhoto(file, maxW=800, quality=0.75) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // ========== LOCAL STORAGE ==========
@@ -872,9 +1025,9 @@ function loadLocalData() {
 
 function getDemoPlants() {
   return [
-    { id:'BSN-001', name:'Ficus si Rinjani', species:'Ficus Retusa', style:'Moyogi (Tegak Informal)', date:'2019-03-15', location:'Teras Depan', waterFreq:2, lastWater: daysAgo(3), notes:'Pohon pertama koleksi. Batang mulai terbentuk dengan baik.', photo:null, history:[{date:'2024-01-10',event:'Pemangkasan cabang utama'},{date:'2023-11-05',event:'Repotting ke pot oval coklat'}] },
-    { id:'BSN-002', name:'Serissa Putih', species:'Serissa Foetida', style:'Chokkan (Tegak Formal)', date:'2021-07-20', location:'Rak A — Dalam Ruangan', waterFreq:1, lastWater: daysAgo(1), notes:'Berbunga kecil putih cantik. Perlu kelembaban tinggi.', photo:null, history:[{date:'2024-02-14',event:'Berbunga pertama tahun ini'}] },
-    { id:'BSN-003', name:'Juniper Tua', species:'Juniperus Procumbens', style:'Shakan (Miring)', date:'2015-06-01', location:'Teras Belakang', waterFreq:3, lastWater: daysAgo(0), notes:'Koleksi warisan. Perlu sinar matahari penuh.', photo:null, history:[] }
+    { id:'BSN-001', name:'Ficus si Rinjani', species:'Ficus Retusa', style:'Moyogi (Tegak Informal)', date:'2019-03-15', location:'Teras Depan', waterFreq:2, lastWater:daysAgo(3), notes:'Pohon pertama koleksi. Batang mulai terbentuk dengan baik.', photo:null, drivePhotoUrl:null, photoTimeline:[], history:[{date:'2024-01-10',event:'Pemangkasan cabang utama',type:'prune'},{date:'2023-11-05',event:'Repotting ke pot oval coklat',type:'repot'}] },
+    { id:'BSN-002', name:'Serissa Putih', species:'Serissa Foetida', style:'Chokkan (Tegak Formal)', date:'2021-07-20', location:'Rak A — Dalam Ruangan', waterFreq:1, lastWater:daysAgo(1), notes:'Berbunga kecil putih cantik. Perlu kelembaban tinggi.', photo:null, drivePhotoUrl:null, photoTimeline:[], history:[{date:'2024-02-14',event:'Berbunga pertama tahun ini',type:'note'}] },
+    { id:'BSN-003', name:'Juniper Tua', species:'Juniperus Procumbens', style:'Shakan (Miring)', date:'2015-06-01', location:'Teras Belakang', waterFreq:3, lastWater:daysAgo(0), notes:'Koleksi warisan. Perlu sinar matahari penuh.', photo:null, drivePhotoUrl:null, photoTimeline:[], history:[] }
   ];
 }
 
@@ -882,9 +1035,11 @@ function daysAgo(n) { const d = new Date(); d.setDate(d.getDate()-n); return d.t
 
 // ========== PLANT CRUD ==========
 function openAddModal(id = null) {
-  editingId = id; currentPhoto = null;
+  editingId = id; currentPhoto = null; currentPhotoFile = null;
   document.getElementById('modalTitle').textContent = id ? '✏️ Edit Pohon' : '🌿 Tambah Pohon Baru';
   const today = new Date().toISOString().split('T')[0];
+  document.getElementById('aiRecPanel').style.display = 'none';
+  document.getElementById('driveUploadBar').classList.remove('show');
   if (id) {
     const p = plants.find(x => x.id === id);
     if (p) {
@@ -897,12 +1052,12 @@ function openAddModal(id = null) {
       document.getElementById('f-lastwater').value = p.lastWater || today;
       document.getElementById('f-style').value = p.style || '';
       document.getElementById('f-notes').value = p.notes || '';
-      currentPhoto = p.photo || null;
-      if (p.photo) setPhotoPreview(p.photo);
+      currentPhoto = p.photo || p.drivePhotoUrl || null;
+      if (currentPhoto) setPhotoPreview(currentPhoto, p.drivePhotoUrl ? true : false);
       else resetPhotoArea();
     }
   } else {
-    ['f-name','f-species','f-location','f-notes'].forEach(id => document.getElementById(id).value = '');
+    ['f-name','f-species','f-location','f-notes'].forEach(fid => document.getElementById(fid).value = '');
     document.getElementById('f-number').value = suggestId();
     document.getElementById('f-date').value = today;
     document.getElementById('f-lastwater').value = today;
@@ -918,12 +1073,32 @@ function suggestId() {
   return 'BSN-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3,'0');
 }
 
-function savePlant() {
+async function savePlant() {
   const name = document.getElementById('f-name').value.trim();
   const id = document.getElementById('f-number').value.trim().toUpperCase();
   if (!name || !id) { toast('⚠️ Nama dan Nomor pohon wajib diisi!', 'warn'); return; }
   if (!editingId && plants.find(p => p.id === id)) { toast('⚠️ Nomor pohon sudah ada!', 'warn'); return; }
 
+  let driveUrl = editingId ? (plants.find(p => p.id === editingId)?.drivePhotoUrl || null) : null;
+
+  // Upload foto baru ke Drive jika ada file baru dan Ada Apps Script URL
+  if (currentPhotoFile && sheetUrl) {
+    document.getElementById('driveUploadBar').classList.add('show');
+    document.getElementById('driveUploadText').textContent = 'Mengupload foto ke Google Drive...';
+    const compressed = await compressPhoto(currentPhotoFile);
+    const filename = `${id}_main_${Date.now()}.jpg`;
+    driveUrl = await uploadPhotoToDrive(id, compressed, filename);
+    if (driveUrl) {
+      document.getElementById('driveUploadText').textContent = '✅ Foto tersimpan di Drive!';
+      setTimeout(() => document.getElementById('driveUploadBar').classList.remove('show'), 2000);
+      currentPhoto = driveUrl; // Use Drive URL as main photo
+    } else {
+      document.getElementById('driveUploadBar').classList.remove('show');
+      // Fall through — keep base64 as fallback
+    }
+  }
+
+  const existing = editingId ? plants.find(p => p.id === editingId) : null;
   const plant = {
     id, name,
     species: document.getElementById('f-species').value.trim(),
@@ -934,7 +1109,9 @@ function savePlant() {
     style: document.getElementById('f-style').value,
     notes: document.getElementById('f-notes').value.trim(),
     photo: currentPhoto,
-    history: editingId ? (plants.find(p => p.id === editingId)?.history || []) : [{ date: new Date().toISOString().split('T')[0], event: 'Pohon ditambahkan ke koleksi 🌱' }]
+    drivePhotoUrl: driveUrl,
+    photoTimeline: existing?.photoTimeline || [],
+    history: existing ? (existing.history || []) : [{ date: new Date().toISOString().split('T')[0], event: 'Pohon ditambahkan ke koleksi 🌱', type:'note' }]
   };
 
   if (editingId) { const idx = plants.findIndex(p => p.id === editingId); if (idx !== -1) plants[idx] = plant; toast(`✅ ${name} berhasil diupdate!`); }
@@ -960,35 +1137,122 @@ function waterPlant(id) {
   const today = new Date().toISOString().split('T')[0];
   p.lastWater = today;
   p.history = p.history || [];
-  p.history.unshift({ date: today, event: 'Penyiraman dilakukan 💧' });
+  p.history.unshift({ date: today, event: 'Penyiraman dilakukan 💧', type:'water' });
   saveLocalData(); pushToSheet(p); renderAll();
   toast(`💧 ${p.name} sudah disiram!`);
   closeModal('detailModal');
 }
 
-// ========== PHOTO ==========
-function handlePhoto(input) {
-  if (!input.files || !input.files[0]) return;
-  const file = input.files[0];
-  if (file.size > 5*1024*1024) { toast('⚠️ Foto terlalu besar, max 5MB', 'warn'); return; }
-  const reader = new FileReader();
-  reader.onload = (e) => { currentPhoto = e.target.result; setPhotoPreview(e.target.result); };
-  reader.readAsDataURL(file);
+// ========== HISTORY MANAGEMENT ==========
+let selectedHistoryType = 'note';
+
+const HISTORY_TYPES = {
+  water: { label: '💧 Siram', dot: 'water' },
+  prune: { label: '✂️ Pangkas', dot: 'prune' },
+  repot: { label: '🪴 Repot', dot: 'note' },
+  fertilize: { label: '🌿 Pupuk', dot: 'note' },
+  wire: { label: '🔩 Kawat', dot: 'prune' },
+  photo: { label: '📷 Foto', dot: 'photo' },
+  bloom: { label: '🌸 Berbunga', dot: 'note' },
+  note: { label: '📝 Catatan', dot: 'note' }
+};
+
+function selectHistoryType(type) {
+  selectedHistoryType = type;
+  document.querySelectorAll('.htype-btn').forEach(b => b.classList.remove('selected'));
+  const btn = document.getElementById('htype-' + type);
+  if (btn) btn.classList.add('selected');
 }
 
-function setPhotoPreview(src) {
+function addHistoryEntry(plantId) {
+  const input = document.getElementById('historyTextInput');
+  const dateInput = document.getElementById('historyDateInput');
+  const text = input ? input.value.trim() : '';
+  const date = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
+  if (!text) { toast('⚠️ Tulis catatan dulu!', 'warn'); return; }
+  const p = plants.find(x => x.id === plantId);
+  if (!p) return;
+  p.history = p.history || [];
+  const typeLabel = HISTORY_TYPES[selectedHistoryType]?.label || '📝';
+  p.history.unshift({ date, event: `${typeLabel.split(' ')[0]} ${text}`, type: selectedHistoryType });
+  saveLocalData(); pushToSheet(p);
+  toast('✅ Riwayat ditambahkan!');
+  openDetail(plantId);
+}
+
+// ========== PHOTO TIMELINE ==========
+function triggerTimelinePhoto(plantId) {
+  pendingTimelinePlantId = plantId;
+  document.getElementById('timelinePhotoInput').value = '';
+  document.getElementById('timelinePhotoInput').click();
+}
+
+async function handleTimelinePhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const plantId = pendingTimelinePlantId;
+  if (!plantId) return;
+  const p = plants.find(x => x.id === plantId);
+  if (!p) return;
+
+  const today = new Date().toISOString().split('T')[0];
+  const compressed = await compressPhoto(file, 600, 0.7);
+  let photoUrl = compressed;
+
+  // Try Drive upload
+  if (sheetUrl) {
+    toast('📤 Mengupload foto ke Drive...');
+    const filename = `${plantId}_timeline_${Date.now()}.jpg`;
+    const driveUrl = await uploadPhotoToDrive(plantId, compressed, filename);
+    if (driveUrl) { photoUrl = driveUrl; toast('✅ Foto timelapse tersimpan di Drive!'); }
+    else { toast('💾 Foto tersimpan lokal (Drive tidak tersedia)', 'warn'); }
+  }
+
+  p.photoTimeline = p.photoTimeline || [];
+  p.photoTimeline.unshift({ date: today, url: photoUrl, note: '' });
+  p.history = p.history || [];
+  p.history.unshift({ date: today, event: '📷 Foto timelapse diambil', type:'photo' });
+
+  saveLocalData(); pushToSheet(p);
+  openDetail(plantId);
+}
+
+function openLightbox(src, caption) {
+  document.getElementById('lbImg').src = src;
+  document.getElementById('lbCaption').textContent = caption || '';
+  document.getElementById('photoLightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('photoLightbox').classList.remove('open'); }
+
+// ========== PHOTO ==========
+async function handlePhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  if (file.size > 10*1024*1024) { toast('⚠️ Foto terlalu besar, max 10MB', 'warn'); return; }
+  currentPhotoFile = file;
+  const compressed = await compressPhoto(file, 800, 0.8);
+  currentPhoto = compressed;
+  setPhotoPreview(compressed, false);
+  if (sheetUrl) {
+    setPhotoPreview(compressed, false, true);
+  }
+}
+
+function setPhotoPreview(src, isDrive=false, showDriveNote=false) {
   const area = document.getElementById('photoArea');
   area.classList.add('has-image');
+  const driveNote = (isDrive || showDriveNote) ? `<div style="position:absolute;bottom:6px;left:6px;z-index:3;background:rgba(26,58,42,0.8);color:white;font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;">${isDrive?'☁️ Drive':'📤 Akan ke Drive'}</div>` : '';
   area.innerHTML = `
     <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handlePhoto(this)" style="position:absolute;inset:0;opacity:0;cursor:pointer;z-index:2;">
     <img src="${src}" style="width:100%;height:160px;object-fit:cover;display:block;">
+    ${driveNote}
     <div style="position:absolute;top:8px;right:8px;z-index:3;">
       <button type="button" onclick="resetPhotoArea()" style="background:rgba(0,0,0,0.6);color:white;border:none;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;">✕ Hapus</button>
     </div>`;
 }
 
 function resetPhotoArea() {
-  currentPhoto = null;
+  currentPhoto = null; currentPhotoFile = null;
   const area = document.getElementById('photoArea');
   area.classList.remove('has-image');
   area.innerHTML = `
@@ -997,25 +1261,27 @@ function resetPhotoArea() {
     <div id="photoPreview">
       <div class="upload-icon">🌱</div>
       <div class="upload-text">Tap untuk upload foto</div>
-      <div class="upload-sub">JPG, PNG, WEBP — max 5MB</div>
+      <div class="upload-sub">JPG, PNG, WEBP — max 10MB · akan diupload ke Drive</div>
     </div>`;
 }
 
-function updatePhoto(id, e) {
+async function updateMainPhoto(id, e) {
   const file = e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const p = plants.find(x => x.id === id);
-    if (p) {
-      p.photo = ev.target.result;
-      p.history = p.history || [];
-      p.history.unshift({ date: new Date().toISOString().split('T')[0], event: 'Foto diperbarui 📷' });
-      saveLocalData(); pushToSheet(p); renderAll(); openDetail(id);
-      toast('📷 Foto berhasil diperbarui!');
-    }
-  };
-  reader.readAsDataURL(file);
+  const p = plants.find(x => x.id === id);
+  if (!p) return;
+  const compressed = await compressPhoto(file, 800, 0.8);
+  let photoUrl = compressed;
+  if (sheetUrl) {
+    toast('📤 Mengupload foto utama ke Drive...');
+    const driveUrl = await uploadPhotoToDrive(id, compressed, `${id}_main_${Date.now()}.jpg`);
+    if (driveUrl) { photoUrl = driveUrl; toast('✅ Foto utama tersimpan di Drive!'); }
+  }
+  p.photo = photoUrl;
+  if (sheetUrl && photoUrl.startsWith('http')) p.drivePhotoUrl = photoUrl;
+  p.history = p.history || [];
+  p.history.unshift({ date: new Date().toISOString().split('T')[0], event: 'Foto utama diperbarui 📷', type:'photo' });
+  saveLocalData(); pushToSheet(p); renderAll(); openDetail(id);
 }
 
 // ========== CALCULATIONS ==========
@@ -1073,12 +1339,19 @@ function renderGarden() {
   c.innerHTML = filtered.map(p => currentView === 'grid' ? renderCard(p) : renderListItem(p)).join('');
 }
 
+function getPhotoSrc(p) {
+  return p.drivePhotoUrl || p.photo || null;
+}
+
 function renderCard(p) {
   const age = calcAge(p.date), ws = calcWaterStatus(p), gw = calcGrowth(p.date);
+  const photoSrc = getPhotoSrc(p);
+  const tlCount = (p.photoTimeline || []).length;
   return `<div class="plant-card" onclick="openDetail('${p.id}')">
-    ${p.photo ? `<img class="card-img" src="${p.photo}" loading="lazy">` : `<div class="card-img-placeholder">${sEmoji(p.species)}</div>`}
+    ${photoSrc ? `<img class="card-img" src="${photoSrc}" loading="lazy">` : `<div class="card-img-placeholder">${sEmoji(p.species)}</div>`}
     <div class="card-badge">${p.id}</div>
     ${ws.needsWater ? `<div class="water-alert">💧 Siram!</div>` : ''}
+    ${tlCount > 0 ? `<div style="position:absolute;bottom:172px;right:10px;background:rgba(200,168,75,0.9);color:var(--forest);font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;">📷 ${tlCount} foto</div>` : ''}
     <div class="card-body">
       <div class="card-name">${p.name}</div>
       <div class="card-species">${p.species || 'Spesies tidak diketahui'}</div>
@@ -1092,7 +1365,7 @@ function renderCard(p) {
       <div class="card-actions">
         <button class="action-btn water-btn" onclick="event.stopPropagation();waterPlant('${p.id}')">💧 Siram</button>
         <button class="action-btn" onclick="event.stopPropagation();openAddModal('${p.id}')">✏️ Edit</button>
-        <button class="action-btn" onclick="event.stopPropagation();downloadLabel('${p.id}')">🏷️ Label</button>
+        <button class="action-btn" onclick="event.stopPropagation();downloadQRLabel('${p.id}')">🏷️ QR Label</button>
       </div>
     </div>
   </div>`;
@@ -1100,8 +1373,9 @@ function renderCard(p) {
 
 function renderListItem(p) {
   const age = calcAge(p.date), ws = calcWaterStatus(p);
+  const photoSrc = getPhotoSrc(p);
   return `<div class="plant-list-item" onclick="openDetail('${p.id}')">
-    ${p.photo ? `<img class="list-thumb" src="${p.photo}" loading="lazy" style="width:52px;height:52px;border-radius:12px;object-fit:cover;">` : `<div class="list-thumb">${sEmoji(p.species)}</div>`}
+    ${photoSrc ? `<img class="list-thumb" src="${photoSrc}" loading="lazy" style="width:52px;height:52px;border-radius:12px;object-fit:cover;">` : `<div class="list-thumb">${sEmoji(p.species)}</div>`}
     <div class="list-info">
       <div class="list-name">${p.name}</div>
       <div class="list-species">${p.species||'Spesies tidak diketahui'}</div>
@@ -1109,6 +1383,7 @@ function renderListItem(p) {
         <span class="badge-sm badge-age">⏳ ${age.text}</span>
         <span class="badge-sm badge-water">💧 ${ws.nextIn}</span>
         ${ws.needsWater?`<span class="badge-sm badge-alert">⚠️ Siram!</span>`:''}
+        ${(p.photoTimeline||[]).length?`<span class="badge-sm" style="background:rgba(200,168,75,0.15);color:#8a6a10;">📷 ${p.photoTimeline.length} foto</span>`:''}
       </div>
     </div>
     <div style="text-align:right;flex-shrink:0;">
@@ -1116,7 +1391,7 @@ function renderListItem(p) {
       <div style="font-size:10px;color:var(--sage);margin-top:3px;">${p.location||'—'}</div>
       <div style="display:flex;gap:5px;margin-top:7px;">
         <button class="action-btn" style="padding:5px 9px;font-size:11px;" onclick="event.stopPropagation();waterPlant('${p.id}')">💧</button>
-        <button class="action-btn" style="padding:5px 9px;font-size:11px;" onclick="event.stopPropagation();downloadLabel('${p.id}')">🏷️</button>
+        <button class="action-btn" style="padding:5px 9px;font-size:11px;" onclick="event.stopPropagation();downloadQRLabel('${p.id}')">🏷️</button>
       </div>
     </div>
   </div>`;
@@ -1149,11 +1424,12 @@ function renderStats() {
   const needW = plants.filter(p => calcWaterStatus(p).needsWater).length;
   const species = new Set(plants.map(p => p.species).filter(Boolean)).size;
   const avgM = plants.length ? Math.round(plants.reduce((s,p) => s+calcAge(p.date).months, 0) / plants.length) : 0;
+  const totalPhotos = plants.reduce((s,p) => s + (p.photoTimeline||[]).length, 0);
   document.getElementById('statsGrid').innerHTML = `
     <div class="stats-card"><div class="stats-icon bg-green">🌳</div><div class="stats-info"><div class="num">${plants.length}</div><div class="lbl">Total Pohon</div></div></div>
     <div class="stats-card"><div class="stats-icon bg-blue">💧</div><div class="stats-info"><div class="num">${needW}</div><div class="lbl">Perlu Disiram</div></div></div>
     <div class="stats-card"><div class="stats-icon bg-orange">🌱</div><div class="stats-info"><div class="num">${species}</div><div class="lbl">Spesies Unik</div></div></div>
-    <div class="stats-card"><div class="stats-icon bg-gold">⏳</div><div class="stats-info"><div class="num">${avgM<12?avgM+'bln':Math.floor(avgM/12)+'th'}</div><div class="lbl">Rata-rata Usia</div></div></div>`;
+    <div class="stats-card"><div class="stats-icon bg-gold">📷</div><div class="stats-info"><div class="num">${totalPhotos}</div><div class="lbl">Foto Timelapse</div></div></div>`;
   const sc = {}; plants.forEach(p => { if(p.species) sc[p.species]=(sc[p.species]||0)+1; });
   const maxS = Math.max(...Object.values(sc), 1);
   document.getElementById('speciesDist').innerHTML = Object.entries(sc).sort((a,b)=>b[1]-a[1])
@@ -1170,518 +1446,372 @@ function openDetail(id) {
   if (!p) return;
   const age = calcAge(p.date), ws = calcWaterStatus(p);
   document.getElementById('detailTitle').textContent = `🌿 ${p.name}`;
-  const hist = (p.history || []).slice(0, 6);
+  const photoSrc = getPhotoSrc(p);
+  const hist = (p.history || []);
+  const timeline = (p.photoTimeline || []);
+  const today = new Date().toISOString().split('T')[0];
+
+  // Build history type buttons
+  const htypes = Object.entries(HISTORY_TYPES).map(([k,v]) =>
+    `<button class="htype-btn${k===selectedHistoryType?' selected':''}" id="htype-${k}" onclick="selectHistoryType('${k}')">${v.label}</button>`
+  ).join('');
+
+  // Build photo timeline HTML
+  const timelineHTML = `
+    <div class="photo-timeline-grid">
+      <div class="add-timeline-photo-btn" onclick="triggerTimelinePhoto('${p.id}')">
+        <div class="icon">📷</div>
+        <div>Tambah Foto</div>
+      </div>
+      ${timeline.map((t,i) => `
+        <div class="photo-timeline-item${i===0?' main-photo':''}">
+          <img src="${t.url}" alt="Foto ${t.date}" onclick="openLightbox('${t.url}','${p.name} — ${t.date}')">
+          <div class="photo-timeline-date">${fmtDateShort(t.date)}</div>
+        </div>
+      `).join('')}
+    </div>`;
+
   document.getElementById('detailBody').innerHTML = `
     <div class="detail-hero">
-      ${p.photo ? `<img src="${p.photo}" style="width:100%;height:200px;object-fit:cover;">` : `<div class="img-placeholder">${sEmoji(p.species)}</div>`}
-      <div class="detail-badges"><span class="detail-badge">${p.id}</span>${p.style?`<span class="detail-badge">${p.style.split('(')[0].trim()}</span>`:''}</div>
+      ${photoSrc ? `<img src="${photoSrc}" style="width:100%;height:200px;object-fit:cover;">` : `<div class="img-placeholder">${sEmoji(p.species)}</div>`}
+      <div class="detail-badges">
+        <span class="detail-badge">${p.id}</span>
+        ${p.style?`<span class="detail-badge">${p.style.split('(')[0].trim()}</span>`:''}
+        ${p.drivePhotoUrl?`<span class="detail-badge" style="background:rgba(74,140,92,0.85);">☁️ Drive</span>`:''}
+      </div>
       <div style="position:absolute;bottom:12px;right:12px;display:flex;gap:7px;">
         <button onclick="openAddModal('${p.id}')" style="background:rgba(255,255,255,0.9);border:none;border-radius:9px;padding:6px 11px;font-size:11px;cursor:pointer;font-weight:600;color:var(--forest);">✏️ Edit</button>
-        <button onclick="triggerPhotoUpdate('${p.id}')" style="background:rgba(255,255,255,0.9);border:none;border-radius:9px;padding:6px 11px;font-size:11px;cursor:pointer;font-weight:600;color:var(--forest);">📷 Foto</button>
+        <label style="background:rgba(255,255,255,0.9);border-radius:9px;padding:6px 11px;font-size:11px;cursor:pointer;font-weight:600;color:var(--forest);">
+          📷 Foto<input type="file" accept="image/*" capture="environment" onchange="updateMainPhoto('${p.id}', this)" style="display:none">
+        </label>
       </div>
     </div>
-    <input type="file" id="photoUpdateInput_${p.id}" accept="image/*" capture="environment" onchange="updatePhoto('${p.id}', this)" style="display:none">
     <div class="detail-stats">
       <div class="detail-stat"><div class="icon">⏳</div><div class="val">${age.text}</div><div class="lbl">Usia</div></div>
       <div class="detail-stat" style="${ws.needsWater?'background:rgba(224,120,64,0.08);':''}"><div class="icon">💧</div><div class="val" style="${ws.needsWater?'color:var(--accent);font-size:12px;':''}"> ${ws.needsWater?'⚠️ Siram!':ws.nextIn}</div><div class="lbl">Penyiraman</div></div>
       <div class="detail-stat"><div class="icon">📍</div><div class="val" style="font-size:11px;">${p.location||'—'}</div><div class="lbl">Lokasi</div></div>
     </div>
     ${p.notes?`<div style="background:var(--dew);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--forest);line-height:1.7;">${p.notes}</div>`:''}
-    <div class="section-title">🏷️ Barcode Label</div>
-    <div class="barcode-section">
-      <div class="barcode-id">${p.id}</div>
-      <div class="barcode-display">${p.id}</div>
-      <div class="barcode-info">
-        <span class="barcode-tag">🌿 ${p.name}</span>
-        <span class="barcode-tag">⏳ ${age.text}</span>
-        <span class="barcode-tag">💧 ${p.waterFreq}h</span>
-        ${p.species?`<span class="barcode-tag">${p.species}</span>`:''}
+
+    <!-- QR CODE SECTION -->
+    <div class="section-title">📱 QR Code Label</div>
+    <div class="qr-section">
+      <canvas id="qrCanvas_${p.id}"></canvas>
+      <div class="qr-info">
+        <div class="qr-id">${p.id}</div>
+        <div class="qr-tags">
+          <span class="qr-tag">🌿 ${p.name}</span>
+          <span class="qr-tag">⏳ ${age.text}</span>
+          <span class="qr-tag">💧 ${p.waterFreq}h</span>
+          ${p.species?`<span class="qr-tag">${p.species}</span>`:''}
+        </div>
       </div>
-      <button class="download-btn" onclick="downloadLabel('${p.id}')">⬇️ Download Label (PNG)</button>
+      <button class="download-btn" onclick="downloadQRLabel('${p.id}')">⬇️ Download Label (PNG)</button>
     </div>
-    ${hist.length?`<div class="section-title">📋 Riwayat</div>
-    <div class="history-timeline">${hist.map(h=>`<div class="history-item"><div class="history-date">${fmtDate(h.date)}</div><div class="history-text">${h.event}</div></div>`).join('')}</div>`:''}
+
+    <!-- PHOTO TIMELINE -->
+    <div class="section-title">📸 Timelapse Foto ${timeline.length>0?`<span style="font-size:10px;color:var(--sage);font-weight:400;">(${timeline.length} foto)</span>`:''}</div>
+    ${timelineHTML}
+
+    <!-- HISTORY -->
+    <div class="section-title">📋 Riwayat Perawatan ${hist.length>0?`<span style="font-size:10px;color:var(--sage);font-weight:400;">(${hist.length} entri)</span>`:''}</div>
+    
+    <!-- ADD HISTORY FORM -->
+    <div class="add-history-section">
+      <div class="section-title">＋ Tambah Catatan Baru</div>
+      <div class="history-type-grid">${htypes}</div>
+      <div class="history-input-row">
+        <input type="date" id="historyDateInput" value="${today}" style="max-width:130px;flex-shrink:0;">
+        <input type="text" id="historyTextInput" placeholder="Tulis keterangan singkat...">
+        <button class="save-history-btn" onclick="addHistoryEntry('${p.id}')">＋ Simpan</button>
+      </div>
+    </div>
+
+    ${hist.length ? `<div class="history-timeline" style="margin-top:12px;">
+      ${hist.map((h,i) => {
+        const dotClass = h.type === 'water' ? 'water' : h.type === 'photo' ? 'photo' : h.type === 'prune' || h.type === 'wire' ? 'prune' : '';
+        return `<div class="history-item">
+          <div class="history-dot ${dotClass}"></div>
+          ${i < hist.length-1 ? '<div class="history-line"></div>' : ''}
+          <div class="history-content">
+            <div class="history-date">${fmtDate(h.date)}</div>
+            <div class="history-text">${h.event}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '<p style="font-size:12px;color:var(--sage);text-align:center;padding:14px;">Belum ada riwayat. Tambahkan catatan pertama di atas!</p>'}
+
     <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;">
       <button class="action-btn water-btn" style="flex:1;padding:11px;" onclick="waterPlant('${p.id}')">💧 Catat Penyiraman</button>
-      <button class="download-btn" style="margin-top:0;" onclick="downloadLabel('${p.id}')">🏷️ Download Label</button>
+      <button class="download-btn" style="margin-top:0;" onclick="downloadQRLabel('${p.id}')">🏷️ QR Label</button>
       <button onclick="deletePlant('${p.id}')" style="padding:11px 14px;background:none;border:1px solid rgba(220,60,60,0.25);border-radius:10px;color:#c0392b;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:500;transition:all 0.2s;" onmouseover="this.style.background='rgba(220,60,60,0.08)'" onmouseout="this.style.background='none'">🗑️ Hapus</button>
     </div>`;
+
   document.getElementById('detailModal').classList.add('open');
+
+  // Generate QR code after DOM ready
+  setTimeout(() => {
+    const qrCanvas = document.getElementById(`qrCanvas_${p.id}`);
+    if (qrCanvas && typeof QRCode !== 'undefined') {
+      QRCode.toCanvas(qrCanvas, p.id, {
+        width: 160,
+        color: { dark: '#1a3a2a', light: '#ffffff' },
+        margin: 2,
+        errorCorrectionLevel: 'M'
+      }, (err) => { if (err) console.warn('QR error:', err); });
+    }
+  }, 100);
 }
 
-function triggerPhotoUpdate(id) {
-  const el = document.getElementById(`photoUpdateInput_${id}`);
-  if (el) el.click();
-}
-
-// ========== BARCODE LABEL DOWNLOAD (Canvas) ==========
-async function downloadLabel(id) {
+// ========== QR LABEL DOWNLOAD ==========
+async function downloadQRLabel(id) {
   const p = plants.find(x => x.id === id);
   if (!p) return;
+  if (typeof QRCode === 'undefined') { toast('⚠️ Library QR Code belum load', 'warn'); return; }
 
-  // Label size: compact pot label — only name, ID, barcode
-  const W = 400, H = 180;
+  const W = 360, H = 220;
   const canvas = document.getElementById('labelCanvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  // White background
+  // Background
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
 
-  // Top green bar
+  // Top bar
   ctx.fillStyle = '#1a3a2a';
-  ctx.fillRect(0, 0, W, 6);
+  ctx.fillRect(0, 0, W, 7);
+  ctx.fillRect(0, H-7, W, 7);
 
-  // Outer border
+  // Border
   ctx.strokeStyle = '#1a3a2a';
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(1, 1, W - 2, H - 2);
+  ctx.strokeRect(1, 1, W-2, H-2);
 
-  // Plant name — large, centered
+  // Name
   ctx.fillStyle = '#1a3a2a';
-  ctx.font = 'bold 26px Georgia, serif';
-  ctx.textAlign = 'center';
-  // Truncate if too long
+  ctx.font = 'bold 22px Georgia, serif';
+  ctx.textAlign = 'left';
   let nameText = p.name;
-  if (ctx.measureText(nameText).width > W - 40) {
-    while (ctx.measureText(nameText + '…').width > W - 40 && nameText.length > 3) nameText = nameText.slice(0, -1);
+  if (ctx.measureText(nameText).width > 170) {
+    while (ctx.measureText(nameText+'…').width > 170 && nameText.length > 3) nameText = nameText.slice(0,-1);
     nameText += '…';
   }
-  ctx.fillText(nameText, W / 2, 46);
+  ctx.fillText(nameText, 14, 34);
 
-  // ID below name
+  // Species
+  ctx.fillStyle = '#7fb08a';
+  ctx.font = 'italic 12px Georgia, serif';
+  ctx.fillText(p.species || 'Unknown species', 14, 52);
+
+  // ID
   ctx.fillStyle = '#4a8c5c';
-  ctx.font = 'bold 13px monospace';
-  ctx.letterSpacing = '2px';
-  ctx.fillText(p.id, W / 2, 65);
+  ctx.font = 'bold 11px monospace';
+  ctx.fillText(p.id, 14, 68);
+
+  // Info line
+  const age = calcAge(p.date);
+  ctx.fillStyle = '#1a3a2a';
+  ctx.font = '10px sans-serif';
+  ctx.fillText(`⏳ ${age.text}  💧 setiap ${p.waterFreq}h  📍 ${(p.location||'—').slice(0,18)}`, 14, 84);
 
   // Divider
-  ctx.strokeStyle = 'rgba(74,140,92,0.25)';
+  ctx.strokeStyle = 'rgba(74,140,92,0.2)';
   ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(30, 76); ctx.lineTo(W - 30, 76); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(14, 92); ctx.lineTo(190, 92); ctx.stroke();
 
-  // ── Barcode (Code 128 accurate encoding) ──
-  const barData = encodeCode128(p.id);
-  const barcodeAreaW = W - 40;
-  const barW = barcodeAreaW / barData.length;
-  const barY = 84, barH = 68;
+  // QR Code (right side)
+  const qrTempCanvas = document.createElement('canvas');
+  await new Promise((resolve) => {
+    QRCode.toCanvas(qrTempCanvas, p.id, { width: 130, color: { dark: '#1a3a2a', light: '#ffffff' }, margin: 1, errorCorrectionLevel: 'M' }, resolve);
+  });
+  ctx.drawImage(qrTempCanvas, W - 144, 8, 130, 130);
 
-  ctx.fillStyle = '#000000';
-  let bx = 20;
-  for (const bit of barData) {
-    if (bit === 1) ctx.fillRect(bx, barY, barW, barH);
-    bx += barW;
-  }
-
-  // Barcode ID text below bars
-  ctx.fillStyle = '#1a3a2a';
-  ctx.font = 'bold 11px monospace';
+  // Bonsai emoji icon
+  ctx.font = '50px serif';
   ctx.textAlign = 'center';
-  ctx.letterSpacing = '3px';
-  ctx.fillText(p.id, W / 2, barY + barH + 14);
+  ctx.fillText(sEmoji(p.species), 100, 155);
 
-  // Bottom green bar
-  ctx.fillStyle = '#1a3a2a';
-  ctx.fillRect(0, H - 5, W, 5);
+  // Bottom text
+  ctx.fillStyle = '#7fb08a';
+  ctx.font = '9px sans-serif';
+  ctx.fillText('Bonsai Garden Tracker', 100, 178);
 
-  // Download PNG
+  // Download
   const link = document.createElement('a');
-  link.download = `label-${p.id}.png`;
+  link.download = `qr-label-${p.id}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
-  toast(`🏷️ Label ${p.name} didownload!`);
-}
-
-// ── Proper Code 128B encoder ──
-function encodeCode128(text) {
-  const C128B = {
-    ' ':0,'!':1,'"':2,'#':3,'$':4,'%':5,'&':6,"'":7,'(':8,')':9,'*':10,'+':11,',':12,'-':13,'.':14,'/':15,
-    '0':16,'1':17,'2':18,'3':19,'4':20,'5':21,'6':22,'7':23,'8':24,'9':25,':':26,';':27,'<':28,'=':29,'>':30,
-    '?':31,'@':32,'A':33,'B':34,'C':35,'D':36,'E':37,'F':38,'G':39,'H':40,'I':41,'J':42,'K':43,'L':44,'M':45,
-    'N':46,'O':47,'P':48,'Q':49,'R':50,'S':51,'T':52,'U':53,'V':54,'W':55,'X':56,'Y':57,'Z':58,'[':59,'\\':60,
-    ']':61,'^':62,'_':63,'`':64,'a':65,'b':66,'c':67,'d':68,'e':69,'f':70,'g':71,'h':72,'i':73,'j':74,'k':75,
-    'l':76,'m':77,'n':78,'o':79,'p':80,'q':81,'r':82,'s':83,'t':84,'u':85,'v':86,'w':87,'x':88,'y':89,'z':90
-  };
-  // Code 128 bar patterns (11 bars each, 1=bar 0=space)
-  const PATTERNS = [
-    '11011001100','11001101100','11001100110','10010011000','10010001100',
-    '10001001100','10011001000','10011000100','10001100100','11001001000',
-    '11001000100','11000100100','10110011100','10011011100','10011001110',
-    '10111001100','10011101100','10011100110','11001110010','11001011100',
-    '11001001110','11011100100','11001110100','11101101110','11101001100',
-    '11100101100','11100100110','11101100100','11100110100','11100110010',
-    '11011011000','11011000110','11000110110','10100011000','10001011000',
-    '10001000110','10110001000','10001101000','10001100010','11010001000',
-    '11000101000','11000100010','10110111000','10110001110','10001101110',
-    '10111011000','10111000110','10001110110','11101110110','11010001110',
-    '11000101110','11011101000','11011100010','11011101110','11101011000',
-    '11101000110','11100010110','11101101000','11101100010','11100011010',
-    '11101111010','11001000010','11110001010','10100110000','10100001100',
-    '10010110000','10010000110','10000101100','10000100110','10110010000',
-    '10110000100','10011010000','10011000010','10000110100','10000110010',
-    '11000010010','11001010000','11110111010','11000010100','10001111010',
-    '10100111100','10010111100','10010011110','10111100100','10011110100',
-    '10011110010','11110100100','11110010100','11110010010','11011011110',
-    '11011110110','11110110110','10101111000','10100011110','10001011110',
-    '10111101000','10111100010','11110101000','11110100010','10111011110',
-    '10111101110','11101011110','11110101110','11010000100','11010010000',
-    '11010011100','1100011101011' // STOP
-  ];
-  const STARB = 104; // START B
-  const STOP  = 106;
-
-  const upper = text.toUpperCase();
-  let vals = [STARB];
-  let check = STARB;
-  for (let i = 0; i < upper.length; i++) {
-    const ch = upper[i];
-    const v = C128B[ch] !== undefined ? C128B[ch] : C128B[' '];
-    vals.push(v);
-    check += v * (i + 1);
-  }
-  vals.push(check % 103); // checksum
-  vals.push(STOP);
-
-  let bits = [];
-  for (const v of vals) {
-    const pat = PATTERNS[v] || PATTERNS[0];
-    for (const b of pat) bits.push(parseInt(b));
-  }
-  return bits;
+  toast(`🏷️ QR Label ${p.name} didownload!`);
 }
 
 // ========== SPECIES SEARCH + AI WATERING ==========
-
-// Built-in bonsai species database with watering frequency
 const SPECIES_DB = [
-  { name: 'Ficus Retusa', freq: 2, notes: 'Toleran kekeringan, siram saat media mulai kering. Kurangi di musim hujan.' },
-  { name: 'Ficus Benjamina', freq: 2, notes: 'Suka kelembaban stabil. Hindari tanah terlalu basah agar akar tidak busuk.' },
-  { name: 'Ficus Microcarpa', freq: 2, notes: 'Siram 2 hari sekali di musim kemarau, 3-4 hari di musim hujan.' },
-  { name: 'Juniperus Procumbens', freq: 3, notes: 'Biarkan media sedikit mengering antar siram. Jangan terlalu lembab.' },
-  { name: 'Juniperus Chinensis', freq: 3, notes: 'Siram menyeluruh lalu biarkan kering sebagian. Butuh drainase baik.' },
-  { name: 'Serissa Foetida', freq: 1, notes: 'Suka lembab konsisten. Siram setiap hari di cuaca panas, jangan sampai kering total.' },
-  { name: 'Serissa Japonica', freq: 1, notes: 'Kelembaban tinggi penting. Semprot daun di musim kering.' },
-  { name: 'Bougainvillea', freq: 2, notes: 'Toleran kekeringan saat sudah dewasa. Kurangi siram untuk memicu pembungaan.' },
-  { name: 'Carmona Retusa', freq: 1, notes: 'Jaga media selalu lembab tapi tidak tergenang. Semprot daun pagi hari.' },
-  { name: 'Premna Obtusifolia', freq: 2, notes: 'Siram 2 hari sekali. Kurangi di musim hujan, tambah di musim kemarau.' },
-  { name: 'Wrightia Religiosa', freq: 1, notes: 'Suka banyak air. Siram setiap hari, pastikan drainase lancar.' },
-  { name: 'Fukien Tea', freq: 1, notes: 'Jaga selalu lembab. Sensitif terhadap kekeringan, daun bisa rontok.' },
-  { name: 'Adenium', freq: 4, notes: 'Sukulen — sangat toleran kekeringan. Siram jarang, biarkan media kering dulu.' },
-  { name: 'Azalea', freq: 1, notes: 'Butuh air banyak, terutama saat berbunga. Gunakan air hujan atau air bersih (bukan air kapur).' },
-  { name: 'Maple Jepang', freq: 1, notes: 'Suka lembab. Siram tiap hari di musim panas, kurangi di musim dingin/hujan.' },
-  { name: 'Acer Palmatum', freq: 1, notes: 'Jaga lembab konsisten, terutama musim panas. Bisa mati cepat jika kering.' },
-  { name: 'Pine / Pinus', freq: 3, notes: 'Biarkan media sedikit kering antar siram. Terlalu basah berbahaya untuk pinus.' },
-  { name: 'Pinus Thunbergii', freq: 3, notes: 'Siram menyeluruh, biarkan mengering sebagian. Jangan siram tiap hari.' },
-  { name: 'Chinese Elm', freq: 2, notes: 'Siram saat permukaan media mulai kering. Cukup toleran terhadap variasi.' },
-  { name: 'Ulmus Parvifolia', freq: 2, notes: 'Siram 2 hari sekali di cuaca normal. Pantau saat cuaca sangat panas.' },
-  { name: 'Trident Maple', freq: 1, notes: 'Butuh air cukup banyak. Siram tiap hari di musim panas.' },
-  { name: 'Portulacaria Afra', freq: 5, notes: 'Sukulen — siram sangat jarang. Biarkan kering total dulu sebelum disiram lagi.' },
-  { name: 'Schefflera', freq: 2, notes: 'Siram saat media atas mulai kering. Toleran tapi tidak suka tergenang.' },
-  { name: 'Anting Putri', freq: 2, notes: 'Siram 2 hari sekali. Suka sinar matahari penuh dan drainase baik.' },
-  { name: 'Beringin', freq: 2, notes: 'Siram teratur 2 hari sekali. Tahan berbagai kondisi, tapi hindari kekeringan panjang.' },
-  { name: 'Santigi', freq: 2, notes: 'Siram 2 hari sekali. Cocok iklim tropis, tahan panas.' },
-  { name: 'Asem Jawa', freq: 3, notes: 'Toleran kekeringan. Siram 3 hari sekali sudah cukup.' },
-  { name: 'Cemara Udang', freq: 2, notes: 'Siram 2 hari sekali. Suka kelembaban sedang, tidak terlalu basah.' },
-  { name: 'Buxus', freq: 2, notes: 'Jaga lembab merata. Siram 2 hari sekali, lebih sering di cuaca panas.' },
-  { name: 'Privet', freq: 2, notes: 'Siram 2 hari sekali. Toleran, tapi jaga agar media tidak kering total.' },
+  {name:'Ficus Retusa',freq:2,notes:'Toleran, suka matahari. Kurangi frekuensi di musim hujan.'},
+  {name:'Ficus Benjamina',freq:2,notes:'Butuh konsistensi. Jangan pindah-pindah lokasi.'},
+  {name:'Juniperus',freq:3,notes:'Suka kering antara siram. Drainase sangat penting.'},
+  {name:'Serissa Foetida',freq:1,notes:'Butuh kelembaban tinggi. Siram sering tapi tidak tergenang.'},
+  {name:'Pinus',freq:3,notes:'Tahan kering. Siram saat media mulai kering.'},
+  {name:'Bougainvillea',freq:2,notes:'Suka kering — berbunga lebih baik kalau sedikit stres air.'},
+  {name:'Carmona',freq:2,notes:'Tropis, suka lembab. Jangan sampai kering total.'},
+  {name:'Wrightia',freq:2,notes:'Suka sinar matahari penuh. Siram merata.'},
+  {name:'Azalea',freq:1,notes:'Butuh air banyak, terutama saat berbunga.'},
+  {name:'Ulmus',freq:2,notes:'Adaptif. Siram saat lapisan atas media mulai kering.'},
 ];
 
 function onSpeciesInput(val) {
-  const q = val.trim().toLowerCase();
   const drop = document.getElementById('speciesDrop');
-  const googleBtn = document.getElementById('googleSearchBtn');
-
-  // Update Google search link
-  const query = encodeURIComponent(val + ' bonsai watering care schedule');
-  googleBtn.href = `https://www.google.com/search?q=${query}`;
-
-  // Hide AI panel when typing
-  document.getElementById('aiRecPanel').style.display = 'none';
-
-  if (!q || q.length < 2) { drop.style.display = 'none'; return; }
-
-  // Match from DB
-  const matches = SPECIES_DB.filter(s =>
-    s.name.toLowerCase().includes(q)
-  ).slice(0, 6);
-
-  // Also match from existing plants
-  const existingSpecies = [...new Set(plants.map(p => p.species).filter(s => s && s.toLowerCase().includes(q)))];
-
-  const allMatches = [...new Map([
-    ...matches.map(m => [m.name, m]),
-    ...existingSpecies.filter(s => !matches.find(m => m.name === s)).map(s => [s, { name: s, freq: null, notes: null }])
-  ]).values()];
-
-  if (!allMatches.length) { drop.style.display = 'none'; return; }
-
-  drop.innerHTML = allMatches.map(m => `
-    <div onclick="selectSpecies('${m.name.replace(/'/g,"\\'")}', ${m.freq})"
-      style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(74,140,92,0.08);display:flex;align-items:center;justify-content:space-between;gap:10px;transition:background 0.15s;"
-      onmouseover="this.style.background='var(--dew)'" onmouseout="this.style.background='white'">
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--forest);">${m.name}</div>
-        ${m.notes ? `<div style="font-size:10px;color:var(--sage);margin-top:1px;">${m.notes.slice(0,55)}…</div>` : ''}
-      </div>
-      ${m.freq ? `<span style="background:rgba(91,163,201,0.15);color:#2a6e8c;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;">💧 ${m.freq}h</span>` : ''}
-    </div>`).join('');
+  document.getElementById('googleSearchBtn') && (document.getElementById('googleSearchBtn').href = `https://www.google.com/search?q=${encodeURIComponent(val+' bonsai care Indonesia')}`);
+  if (!val || val.length < 2) { drop.style.display = 'none'; return; }
+  const matches = SPECIES_DB.filter(s => s.name.toLowerCase().includes(val.toLowerCase()));
+  if (!matches.length) { drop.style.display = 'none'; return; }
   drop.style.display = 'block';
+  drop.innerHTML = matches.slice(0,5).map(s =>
+    `<div class="species-suggestion" onclick="selectSpecies('${s.name}',${s.freq})">
+      <span>${s.name}</span><span class="species-freq">💧 ${s.freq}h</span>
+    </div>`).join('');
 }
 
 function selectSpecies(name, freq) {
   document.getElementById('f-species').value = name;
-  document.getElementById('speciesDrop').style.display = 'none';
-  if (freq) {
-    document.getElementById('f-waterfreq').value = freq;
-    // Show the matching notes
-    const match = SPECIES_DB.find(s => s.name === name);
-    if (match) showAiPanel(`🌿 <strong>${name}</strong><br><br>💧 <strong>Frekuensi siram:</strong> Setiap <strong>${freq} hari</strong><br><br>📝 ${match.notes}`, false);
-  }
+  document.getElementById('f-waterfreq').value = freq;
+  closeSpeciesDrop();
+  const m = SPECIES_DB.find(s => s.name === name);
+  if (m) showAiPanel(`📚 <strong>${m.name}</strong><br><br>💧 Siram setiap <strong>${m.freq} hari</strong><br><br>📝 ${m.notes}`, false);
 }
 
-function closeSpeciesDrop() {
-  document.getElementById('speciesDrop').style.display = 'none';
-}
+function closeSpeciesDrop() { document.getElementById('speciesDrop').style.display = 'none'; }
 
 async function fetchAiWatering() {
   const species = document.getElementById('f-species').value.trim();
-  if (!species) { toast('⚠️ Isi nama spesies dulu', 'warn'); return; }
-
+  if (!species) { toast('⚠️ Isi nama spesies dulu!', 'warn'); return; }
   const btn = document.getElementById('aiRecBtn');
-  btn.textContent = '⏳';
-  btn.style.pointerEvents = 'none';
-  showAiPanel('🤖 Menghubungi AI…', true);
+  btn.textContent = '⏳'; btn.style.pointerEvents = 'none';
+  showAiPanel('Memuat rekomendasi AI...', true);
 
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 400,
-        system: 'Kamu adalah ahli botani bonsai berpengalaman. Jawab dalam Bahasa Indonesia, singkat dan praktis. Format: mulai langsung dengan angka frekuensi siram dan penjelasan singkat. Gunakan emoji untuk keterbacaan.',
-        messages: [{
-          role: 'user',
-          content: `Berikan rekomendasi penyiraman untuk bonsai ${species} di iklim tropis Indonesia. Sertakan: (1) frekuensi siram ideal dalam hari, (2) tips khusus musim kemarau vs hujan, (3) tanda-tanda terlalu banyak atau kurang air. Maksimal 5 kalimat pendek.`
-        }]
-      })
-    });
+  const proxyUrl = sheetUrl;
+  const apiKey = localStorage.getItem('bonsai_anthropic_key');
+  const prompt = `Berikan rekomendasi penyiraman untuk bonsai ${species} di iklim tropis Indonesia. Sertakan: (1) frekuensi siram ideal dalam hari, (2) tips musim kemarau vs hujan, (3) tanda kelebihan atau kekurangan air. Maksimal 5 kalimat pendek.`;
+  const system = 'Kamu adalah ahli botani bonsai berpengalaman. Jawab dalam Bahasa Indonesia, singkat dan praktis. Mulai langsung dengan angka frekuensi siram. Gunakan emoji untuk keterbacaan.';
 
-    const data = await res.json();
-    const text = data?.content?.[0]?.text || 'Tidak ada respons dari AI.';
-
-    // Try to extract frequency number from response
-    const freqMatch = text.match(/(\d+)\s*[-–]\s*(\d+)\s*hari|setiap\s*(\d+)\s*hari|(\d+)\s*hari\s*sekali/i);
-    if (freqMatch) {
-      const freq = parseInt(freqMatch[1] || freqMatch[3] || freqMatch[4]);
-      if (freq >= 1 && freq <= 14) document.getElementById('f-waterfreq').value = freq;
-    }
-
-    showAiPanel(`🤖 <strong>Rekomendasi AI untuk ${species}:</strong><br><br>${text.replace(/\n/g, '<br>')}`, false);
-    toast('✅ Rekomendasi AI berhasil dimuat');
-
-  } catch(e) {
-    // Fallback to DB
-    const match = SPECIES_DB.find(s => s.name.toLowerCase().includes(species.toLowerCase()));
-    if (match) {
-      document.getElementById('f-waterfreq').value = match.freq;
-      showAiPanel(`📚 <strong>Data dari database untuk ${match.name}:</strong><br><br>💧 Frekuensi siram: setiap <strong>${match.freq} hari</strong><br><br>📝 ${match.notes}<br><br><small style="color:var(--sage);">AI tidak tersedia — menampilkan data lokal</small>`, false);
-    } else {
-      showAiPanel(`⚠️ AI tidak tersedia dan spesies tidak ditemukan di database lokal.<br><br>Coba klik 🔍 untuk cari di Google.`, false);
-    }
+  let text = null;
+  if (proxyUrl) {
+    try {
+      const res = await fetch(proxyUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'ai', species, prompt, system}) });
+      const json = await res.json();
+      text = json.text || null;
+    } catch(e) {}
+  }
+  if (!text && apiKey && (location.protocol === 'file:' || location.hostname === 'localhost')) {
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:400, system, messages:[{role:'user',content:prompt}] })
+      });
+      if (res.ok) { const data = await res.json(); text = data?.content?.[0]?.text || null; }
+    } catch(e) {}
   }
 
-  btn.textContent = '🤖';
-  btn.style.pointerEvents = 'auto';
+  btn.textContent = '🤖'; btn.style.pointerEvents = 'auto';
+
+  if (text) {
+    const freqMatch = text.match(/(\d+)\s*[-–]\s*(\d+)\s*hari|setiap\s*(\d+)\s*hari|(\d+)\s*hari\s*sekali/i);
+    if (freqMatch) { const freq = parseInt(freqMatch[1]||freqMatch[3]||freqMatch[4]); if (freq>=1&&freq<=14) document.getElementById('f-waterfreq').value = freq; }
+    showAiPanel(`🤖 <strong>Rekomendasi AI untuk <em>${species}</em>:</strong><br><br>${text.replace(/\n/g,'<br>')}`, false);
+    toast('✅ Rekomendasi AI berhasil');
+  } else {
+    const m = SPECIES_DB.find(s => s.name.toLowerCase().includes(species.toLowerCase()));
+    if (m) { document.getElementById('f-waterfreq').value = m.freq; showAiPanel(`📚 <strong>${m.name}</strong> (database lokal)<br><br>💧 Siram setiap <strong>${m.freq} hari</strong><br><br>${m.notes}`, false); }
+    else showAiPanel(`<div style="text-align:center;padding:8px 0;"><div style="font-size:24px;">🌿</div><strong>${species}</strong> belum ada di database.<br>Setup Apps Script proxy untuk aktifkan AI.</div>`, false);
+  }
 }
 
-function showAiPanel(html, loading = false) {
+function showAiPanel(html, loading=false) {
   const panel = document.getElementById('aiRecPanel');
   panel.style.display = 'block';
-  panel.innerHTML = loading
-    ? `<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:18px;animation:spin 1s linear infinite;display:inline-block;">⏳</span> ${html}</div>`
-    : html;
+  panel.innerHTML = loading ? `<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:18px;animation:spin 1s linear infinite;display:inline-block;">⏳</span> ${html}</div>` : html;
 }
 
-// Spin animation for loader
-if (!document.getElementById('spin-style')) {
-  const s = document.createElement('style');
-  s.id = 'spin-style';
-  s.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
-  document.head.appendChild(s);
-}
-
-
-// Engine priority: 1) html5-qrcode  2) native BarcodeDetector API  3) camera-only fallback
+// ========== QR SCANNER ==========
 let html5QrScanner = null;
 let nativeScanInterval = null;
 let cameraStream = null;
 
 async function startScanner() {
   const status = document.getElementById('scanner-status');
-  const startBtn = document.getElementById('startScanBtn');
-  const stopBtn = document.getElementById('stopScanBtn');
-
-  status.textContent = '📷 Memulai kamera...';
-  startBtn.style.display = 'none';
-  stopBtn.style.display = 'flex';
+  document.getElementById('startScanBtn').style.display = 'none';
+  document.getElementById('stopScanBtn').style.display = 'flex';
   scannerActive = true;
+  status.textContent = '📷 Memulai kamera...';
 
-  // Engine 1: html5-qrcode (paling reliable, support Code128/QR/dll)
   if (typeof Html5Qrcode !== 'undefined') {
     try {
-      // html5-qrcode butuh div, bukan video — swap elemen
       const container = document.getElementById('video-container');
       container.innerHTML = '<div id="html5qr-reader" style="width:100%;height:100%;border-radius:14px;overflow:hidden;"></div>';
-
-      html5QrScanner = new Html5Qrcode('html5qr-reader', { verbose: false });
-
-      const config = {
-        fps: 10,
-        qrbox: { width: 200, height: 80 },
-        aspectRatio: 1.5,
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.DATA_MATRIX
-        ]
-      };
-
+      html5QrScanner = new Html5Qrcode('html5qr-reader', {verbose:false});
       await html5QrScanner.start(
-        { facingMode: 'environment' },
-        config,
-        (decodedText) => {
-          // SUCCESS
-          onBarcodeDetected(decodedText.trim().toUpperCase());
-        },
-        () => {} // scan error — abaikan, terjadi terus
+        {facingMode:'environment'},
+        { fps:10, qrbox:{width:220,height:220}, aspectRatio:1.5, formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39] },
+        (decoded) => onQRDetected(decoded.trim().toUpperCase()),
+        () => {}
       );
-
-      status.textContent = '🎯 Arahkan ke barcode pada label pot...';
-      toast('📷 Kamera aktif — tahan stabil di atas barcode');
+      status.textContent = '🎯 Arahkan ke QR Code pada label pot...';
+      toast('📷 Kamera aktif — tahan stabil di atas QR Code');
       return;
-
     } catch(err) {
-      console.warn('[Scanner] html5-qrcode gagal:', err.message);
-      // Restore video element
       const container = document.getElementById('video-container');
       container.innerHTML = '<video id="scanner-video" playsinline autoplay muted></video><div class="scanner-overlay"><div class="scan-line"></div><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div></div>';
-
-      if (err.name === 'NotAllowedError' || err.message?.includes('permission')) {
-        status.textContent = '❌ Izin kamera ditolak. Aktifkan di pengaturan browser.';
-        toast('❌ Izin kamera ditolak', 'warn');
-        resetScannerUI();
-        return;
-      }
-      // Fall through to engine 2
+      if (err.name === 'NotAllowedError') { status.textContent = '❌ Izin kamera ditolak'; toast('❌ Izin kamera ditolak','warn'); resetScannerUI(); return; }
     }
   }
 
-  // Engine 2: Native BarcodeDetector API (Chrome Android 83+, Chrome desktop 88+)
   if ('BarcodeDetector' in window) {
     try {
-      const detector = new BarcodeDetector({
-        formats: ['code_128', 'code_39', 'qr_code', 'ean_13', 'data_matrix']
-      });
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
+      const detector = new BarcodeDetector({formats:['qr_code','code_128','code_39']});
+      const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
       cameraStream = stream;
       const video = document.getElementById('scanner-video');
-      video.srcObject = stream;
-      await video.play();
-
-      status.textContent = '🎯 Arahkan ke barcode (Native API)...';
-
+      video.srcObject = stream; await video.play();
+      status.textContent = '🎯 Arahkan ke QR Code (Native API)...';
       const canvas = document.createElement('canvas');
       nativeScanInterval = setInterval(async () => {
         if (!scannerActive) { clearInterval(nativeScanInterval); return; }
         if (video.readyState < 2) return;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        try {
-          const barcodes = await detector.detect(canvas);
-          if (barcodes.length > 0) {
-            onBarcodeDetected(barcodes[0].rawValue.trim().toUpperCase());
-          }
-        } catch(e) {}
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video,0,0);
+        try { const barcodes = await detector.detect(canvas); if (barcodes.length > 0) onQRDetected(barcodes[0].rawValue.trim().toUpperCase()); } catch(e) {}
       }, 300);
-
-      toast('📷 Kamera aktif (Native)');
       return;
-
-    } catch(err) {
-      console.warn('[Scanner] BarcodeDetector gagal:', err.message);
-      if (err.name === 'NotAllowedError') {
-        status.textContent = '❌ Izin kamera ditolak. Aktifkan di pengaturan browser.';
-        toast('❌ Izin kamera ditolak', 'warn');
-        resetScannerUI();
-        return;
-      }
-    }
+    } catch(err) { if (err.name === 'NotAllowedError') { status.textContent = '❌ Izin kamera ditolak'; resetScannerUI(); return; } }
   }
 
-  // Engine 3: Kamera saja (tanpa decode otomatis — manual input)
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' } }
-    });
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
     cameraStream = stream;
     const video = document.getElementById('scanner-video');
-    video.srcObject = stream;
-    await video.play();
-    status.textContent = '📷 Kamera aktif — lihat barcode lalu ketik ID-nya di bawah';
-    toast('ℹ️ Ketik ID pohon yang terlihat di kamera', 'warn');
-  } catch(err) {
-    console.warn('[Scanner] Semua engine gagal:', err.message);
-    status.textContent = '⚠️ Kamera tidak dapat diakses — gunakan input manual';
-    toast('⚠️ Gunakan input manual di bawah', 'warn');
-    resetScannerUI();
-  }
+    video.srcObject = stream; await video.play();
+    status.textContent = '📷 Kamera aktif — ketik ID di bawah';
+  } catch(err) { status.textContent = '⚠️ Kamera tidak dapat diakses — gunakan input manual'; resetScannerUI(); }
 }
 
-function onBarcodeDetected(text) {
+function onQRDetected(text) {
   if (!text || !scannerActive) return;
   document.getElementById('scanner-status').textContent = `✅ Terdeteksi: ${text}`;
-  document.getElementById('barcodeInput').value = text;
-  searchByBarcode(text);
-  navigator.vibrate && navigator.vibrate([100, 50, 100]);
-  toast(`✅ Barcode: ${text}`);
-  // Jangan stop — biarkan scan terus kalau belum ditemukan
+  document.getElementById('qrInput').value = text;
+  searchByQR(text);
+  navigator.vibrate && navigator.vibrate([100,50,100]);
+  toast(`✅ QR: ${text}`);
   const p = plants.find(x => x.id === text);
-  if (p) {
-    // Auto stop setelah berhasil match
-    setTimeout(() => stopScanner(), 1500);
-  }
+  if (p) setTimeout(() => stopScanner(), 1500);
 }
 
 function stopScanner() {
   scannerActive = false;
-
-  // Stop html5-qrcode
-  if (html5QrScanner) {
-    try { html5QrScanner.stop().catch(() => {}); } catch(e) {}
-    html5QrScanner = null;
-    // Restore video element
-    const container = document.getElementById('video-container');
-    if (!container.querySelector('video')) {
-      container.innerHTML = '<video id="scanner-video" playsinline autoplay muted></video><div class="scanner-overlay"><div class="scan-line"></div><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div></div>';
-    }
-  }
-
-  // Stop native interval
+  if (html5QrScanner) { try { html5QrScanner.stop().catch(()=>{}); } catch(e) {} html5QrScanner = null; const container = document.getElementById('video-container'); if (!container.querySelector('video')) container.innerHTML = '<video id="scanner-video" playsinline autoplay muted></video><div class="scanner-overlay"><div class="scan-line"></div><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div></div>'; }
   if (nativeScanInterval) { clearInterval(nativeScanInterval); nativeScanInterval = null; }
-
-  // Stop camera stream
-  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  if (cameraStream) { cameraStream.getTracks().forEach(t=>t.stop()); cameraStream = null; }
   const video = document.getElementById('scanner-video');
-  if (video && video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
-
+  if (video && video.srcObject) { video.srcObject.getTracks().forEach(t=>t.stop()); video.srcObject = null; }
   resetScannerUI();
   document.getElementById('scanner-status').textContent = 'Scanner dihentikan';
 }
@@ -1692,16 +1822,17 @@ function resetScannerUI() {
   scannerActive = false;
 }
 
-function searchByBarcode(val) {
+function searchByQR(val) {
   const q = val.trim().toUpperCase();
   if (!q) { document.getElementById('scanResult').innerHTML = ''; return; }
   const p = plants.find(x => x.id === q || x.name.toUpperCase().includes(q));
   const c = document.getElementById('scanResult');
   if (p) {
     const age = calcAge(p.date), ws = calcWaterStatus(p);
-    c.innerHTML = `<div style="background:white;border-radius:20px;padding:18px;border:2px solid rgba(74,140,92,0.4);box-shadow:0 8px 24px rgba(26,58,42,0.12);">
+    const photoSrc = getPhotoSrc(p);
+    c.innerHTML = `<div style="background:white;border-radius:20px;padding:18px;border:2px solid rgba(74,140,92,0.4);box-shadow:0 8px 24px rgba(26,58,42,0.12);margin-top:16px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-        ${p.photo?`<img src="${p.photo}" style="width:60px;height:60px;border-radius:12px;object-fit:cover;">`:`<div style="width:60px;height:60px;border-radius:12px;background:var(--dew);display:flex;align-items:center;justify-content:center;font-size:30px;">${sEmoji(p.species)}</div>`}
+        ${photoSrc?`<img src="${photoSrc}" style="width:60px;height:60px;border-radius:12px;object-fit:cover;">`:`<div style="width:60px;height:60px;border-radius:12px;background:var(--dew);display:flex;align-items:center;justify-content:center;font-size:30px;">${sEmoji(p.species)}</div>`}
         <div>
           <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--forest);">${p.name}</div>
           <div style="font-size:11px;color:var(--sage);font-style:italic;">${p.species||'—'}</div>
@@ -1709,14 +1840,8 @@ function searchByBarcode(val) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-        <div style="background:var(--dew);border-radius:10px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--sage);">Usia</div>
-          <div style="font-size:15px;font-weight:700;color:var(--forest);">${age.text}</div>
-        </div>
-        <div style="background:${ws.needsWater?'rgba(224,120,64,0.08)':'var(--dew)'};border-radius:10px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--sage);">Siram</div>
-          <div style="font-size:13px;font-weight:700;color:${ws.needsWater?'var(--accent)':'var(--forest)'};">${ws.needsWater?'⚠️ Sekarang!':ws.nextIn}</div>
-        </div>
+        <div style="background:var(--dew);border-radius:10px;padding:10px;text-align:center;"><div style="font-size:10px;color:var(--sage);">Usia</div><div style="font-size:15px;font-weight:700;color:var(--forest);">${age.text}</div></div>
+        <div style="background:${ws.needsWater?'rgba(224,120,64,0.08)':'var(--dew)'};border-radius:10px;padding:10px;text-align:center;"><div style="font-size:10px;color:var(--sage);">Siram</div><div style="font-size:13px;font-weight:700;color:${ws.needsWater?'var(--accent)':'var(--forest)'};">${ws.needsWater?'⚠️ Sekarang!':ws.nextIn}</div></div>
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn-primary" style="flex:1;justify-content:center;" onclick="openDetail('${p.id}')">📋 Detail</button>
@@ -1724,19 +1849,16 @@ function searchByBarcode(val) {
       </div>
     </div>`;
   } else if (q.length >= 2) {
-    c.innerHTML = `<div style="text-align:center;padding:24px;color:var(--sage);font-size:13px;">
-      <div style="font-size:36px;margin-bottom:8px;">🔍</div>
-      <div>ID "<strong>${q}</strong>" tidak ditemukan</div>
-    </div>`;
+    c.innerHTML = `<div style="text-align:center;padding:24px;color:var(--sage);font-size:13px;margin-top:16px;background:white;border-radius:16px;"><div style="font-size:36px;margin-bottom:8px;">🔍</div><div>ID "<strong>${q}</strong>" tidak ditemukan</div></div>`;
   }
 }
 
 // ========== TABS ==========
 function openTab(name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('view-'+name).classList.add('active');
   if (name !== 'scanner') stopScanner();
 }
 
@@ -1766,7 +1888,12 @@ function sEmoji(species) {
 
 function fmtDate(d) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' });
+  return new Date(d).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+}
+
+function fmtDateShort(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('id-ID', {day:'numeric', month:'short'});
 }
 
 function toast(msg, type='info') {
@@ -1778,17 +1905,19 @@ function toast(msg, type='info') {
   c.appendChild(t);
   setTimeout(() => t.remove(), 3200);
 }
-</script>
 
+if (!document.getElementById('spin-style')) {
+  const s = document.createElement('style');
+  s.id = 'spin-style';
+  s.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+  document.head.appendChild(s);
+}
+</script>
 
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then(reg => {
-      console.log('[Bonsai Garden] SW registered:', reg.scope);
-    }).catch(err => {
-      console.warn('[Bonsai Garden] SW registration failed:', err);
-    });
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
   });
 }
 </script>
