@@ -971,7 +971,25 @@ async function fetchFromSheet() {
 async function pushToSheet(plant) {
   if (!sheetUrl) return;
   try {
-    await fetch(sheetUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'upsert', data: plant}), mode:'no-cors' });
+    // Jangan kirim base64 ke Sheets — terlalu besar & tidak perlu
+    // Kirim metadata saja + Drive URL kalau ada
+    const payload = { ...plant };
+    if (payload.photo && payload.photo.startsWith('data:')) {
+      payload.photo = payload.drivePhotoUrl || '(local-only)';
+    }
+    // photoTimeline: filter out base64, hanya kirim Drive URL
+    if (payload.photoTimeline) {
+      payload.photoTimeline = payload.photoTimeline.map(t => ({
+        ...t,
+        url: t.url && t.url.startsWith('data:') ? '(local-only)' : t.url
+      }));
+    }
+    await fetch(sheetUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action:'upsert', data: payload}),
+      mode: 'no-cors'
+    });
     setSyncStatus(true);
   } catch(e) { setSyncStatus(false); }
 }
@@ -1091,35 +1109,16 @@ async function savePlant() {
   if (!name || !id) { toast('⚠️ Nama dan Nomor pohon wajib diisi!', 'warn'); return; }
   if (!editingId && plants.find(p => p.id === id)) { toast('⚠️ Nomor pohon sudah ada!', 'warn'); return; }
 
-  let driveUrl = editingId ? (plants.find(p => p.id === editingId)?.drivePhotoUrl || null) : null;
-
-  // Upload foto baru ke Drive
-  if (currentPhotoFile && sheetUrl) {
-    const bar = document.getElementById('driveUploadBar');
-    const barText = document.getElementById('driveUploadText');
-    bar.classList.add('show');
-    barText.textContent = '📤 Mengkompresi & mengupload ke Drive...';
-    try {
-      const compressed = await compressPhoto(currentPhotoFile, 800, 0.75);
-      const filename = `${id}_main_${Date.now()}.jpg`;
-      barText.textContent = `📤 Uploading ${filename}...`;
-      driveUrl = await uploadPhotoToDrive(id, compressed, filename);
-      if (driveUrl) {
-        barText.textContent = '✅ Foto tersimpan di Drive!';
-        currentPhoto = driveUrl;
-        setTimeout(() => bar.classList.remove('show'), 2500);
-      } else {
-        barText.textContent = '⚠️ Drive upload gagal — foto tersimpan lokal';
-        setTimeout(() => bar.classList.remove('show'), 3000);
-        // currentPhoto tetap base64 sebagai fallback
-      }
-    } catch(e) {
-      console.error('[savePlant] upload error:', e);
-      bar.classList.remove('show');
-    }
-  }
-
   const existing = editingId ? plants.find(p => p.id === editingId) : null;
+  let driveUrl = existing?.drivePhotoUrl || null;
+
+  // Selalu simpan base64 lokal dulu — ini yang paling penting
+  // currentPhoto sudah diset oleh handlePhoto (base64)
+  const photoForStorage = currentPhoto; // bisa base64 atau Drive URL kalau edit
+
+  console.log('[savePlant] currentPhoto type:', currentPhoto ? (currentPhoto.startsWith('data:') ? 'base64 ('+Math.round(currentPhoto.length/1024)+'KB)' : 'URL') : 'null');
+  console.log('[savePlant] currentPhotoFile:', currentPhotoFile ? currentPhotoFile.name : 'null');
+
   const plant = {
     id, name,
     species: document.getElementById('f-species').value.trim(),
@@ -1129,19 +1128,50 @@ async function savePlant() {
     lastWater: document.getElementById('f-lastwater').value,
     style: document.getElementById('f-style').value,
     notes: document.getElementById('f-notes').value.trim(),
-    photo: currentPhoto,
-    drivePhotoUrl: driveUrl,
+    photo: photoForStorage,       // base64 atau URL — tersimpan lokal
+    drivePhotoUrl: driveUrl,      // Drive URL kalau ada
     photoTimeline: existing?.photoTimeline || [],
     history: existing ? (existing.history || []) : [{ date: new Date().toISOString().split('T')[0], event: 'Pohon ditambahkan ke koleksi 🌱', type:'note' }]
   };
 
-  if (editingId) { const idx = plants.findIndex(p => p.id === editingId); if (idx !== -1) plants[idx] = plant; toast(`✅ ${name} berhasil diupdate!`); }
-  else { plants.push(plant); toast(`🌱 ${name} berhasil ditambahkan!`); }
-
+  // Simpan SEKARANG — tidak tunggu Drive upload
+  if (editingId) {
+    const idx = plants.findIndex(p => p.id === editingId);
+    if (idx !== -1) plants[idx] = plant;
+    toast(`✅ ${name} berhasil diupdate!`);
+  } else {
+    plants.push(plant);
+    toast(`🌱 ${name} berhasil ditambahkan!`);
+  }
   saveLocalData();
   pushToSheet(plant);
   closeModal('addModal');
   renderAll();
+
+  // Upload Drive di background (tidak block UI)
+  if (currentPhotoFile && sheetUrl) {
+    const bar = document.getElementById('driveUploadBar');
+    const barText = document.getElementById('driveUploadText');
+    if (bar) { bar.classList.add('show'); barText.textContent = '📤 Mengupload foto ke Drive...'; }
+    // Pakai compressed yang sudah ada (currentPhoto adalah base64)
+    const b64 = plant.photo && plant.photo.startsWith('data:') ? plant.photo : null;
+    if (b64) {
+      uploadPhotoToDrive(id, b64, `${id}_main_${Date.now()}.jpg`).then(url => {
+        if (url) {
+          // Update plant dengan Drive URL
+          const p = plants.find(x => x.id === id);
+          if (p) { p.drivePhotoUrl = url; p.photo = url; saveLocalData(); pushToSheet(p); renderAll(); }
+          if (bar) { barText.textContent = '✅ Foto tersimpan di Drive!'; setTimeout(() => bar.classList.remove('show'), 2500); }
+          toast('☁️ Foto berhasil diupload ke Drive!');
+        } else {
+          if (bar) { barText.textContent = '⚠️ Drive upload gagal — foto tersimpan lokal'; setTimeout(() => bar.classList.remove('show'), 3000); }
+          toast('💾 Foto tersimpan lokal (Drive tidak tersedia)', 'warn');
+        }
+      });
+    } else {
+      if (bar) bar.classList.remove('show');
+    }
+  }
 }
 
 function deletePlant(id) {
@@ -1218,24 +1248,33 @@ async function handleTimelinePhoto(input) {
 
   const today = new Date().toISOString().split('T')[0];
   const compressed = await compressPhoto(file, 600, 0.7);
-  let photoUrl = compressed;
-
-  // Try Drive upload
-  if (sheetUrl) {
-    toast('📤 Mengupload foto ke Drive...');
-    const filename = `${plantId}_timeline_${Date.now()}.jpg`;
-    const driveUrl = await uploadPhotoToDrive(plantId, compressed, filename);
-    if (driveUrl) { photoUrl = driveUrl; toast('✅ Foto timelapse tersimpan di Drive!'); }
-    else { toast('💾 Foto tersimpan lokal (Drive tidak tersedia)', 'warn'); }
-  }
-
+  // Simpan lokal dulu dengan base64
   p.photoTimeline = p.photoTimeline || [];
-  p.photoTimeline.unshift({ date: today, url: photoUrl, note: '' });
+  p.photoTimeline.unshift({ date: today, url: compressed, note: '' });
   p.history = p.history || [];
   p.history.unshift({ date: today, event: '📷 Foto timelapse diambil', type:'photo' });
-
-  saveLocalData(); pushToSheet(p);
+  saveLocalData();
   openDetail(plantId);
+  toast('✅ Foto timelapse tersimpan!');
+
+  // Upload Drive di background
+  if (sheetUrl) {
+    const filename = `${plantId}_timeline_${Date.now()}.jpg`;
+    uploadPhotoToDrive(plantId, compressed, filename).then(driveUrl => {
+      if (driveUrl) {
+        // Ganti base64 di index 0 dengan Drive URL
+        if (p.photoTimeline[0] && p.photoTimeline[0].url === compressed) {
+          p.photoTimeline[0].url = driveUrl;
+          saveLocalData(); pushToSheet(p);
+          toast('☁️ Foto timelapse tersimpan di Drive!');
+        }
+      } else {
+        pushToSheet(p); // push dengan base64 → akan di-strip di pushToSheet
+      }
+    });
+  } else {
+    pushToSheet(p);
+  }
 }
 
 function openLightbox(src, caption) {
@@ -1251,12 +1290,12 @@ async function handlePhoto(input) {
   const file = input.files[0];
   if (file.size > 10*1024*1024) { toast('⚠️ Foto terlalu besar, max 10MB', 'warn'); return; }
   currentPhotoFile = file;
+  toast('🔄 Mengkompresi foto...');
   const compressed = await compressPhoto(file, 800, 0.8);
   currentPhoto = compressed;
-  setPhotoPreview(compressed, false);
-  if (sheetUrl) {
-    setPhotoPreview(compressed, false, true);
-  }
+  // Tampilkan preview — panggil setPhotoPreview SEKALI saja
+  setPhotoPreview(compressed, false, !!sheetUrl);
+  console.log('[Photo] handlePhoto done — file set, compressed size:', Math.round(compressed.length/1024)+'KB');
 }
 
 function setPhotoPreview(src, isDrive=false, showDriveNote=false) {
@@ -1291,18 +1330,29 @@ async function updateMainPhoto(id, e) {
   if (!file) return;
   const p = plants.find(x => x.id === id);
   if (!p) return;
+  toast('🔄 Memproses foto...');
   const compressed = await compressPhoto(file, 800, 0.8);
-  let photoUrl = compressed;
-  if (sheetUrl) {
-    toast('📤 Mengupload foto utama ke Drive...');
-    const driveUrl = await uploadPhotoToDrive(id, compressed, `${id}_main_${Date.now()}.jpg`);
-    if (driveUrl) { photoUrl = driveUrl; toast('✅ Foto utama tersimpan di Drive!'); }
-  }
-  p.photo = photoUrl;
-  if (sheetUrl && photoUrl.startsWith('http')) p.drivePhotoUrl = photoUrl;
+  // Simpan lokal dulu
+  p.photo = compressed;
   p.history = p.history || [];
   p.history.unshift({ date: new Date().toISOString().split('T')[0], event: 'Foto utama diperbarui 📷', type:'photo' });
-  saveLocalData(); pushToSheet(p); renderAll(); openDetail(id);
+  saveLocalData(); renderAll(); openDetail(id);
+  toast('✅ Foto tersimpan!');
+  // Upload Drive di background
+  if (sheetUrl) {
+    toast('📤 Mengupload ke Drive...');
+    uploadPhotoToDrive(id, compressed, `${id}_main_${Date.now()}.jpg`).then(driveUrl => {
+      if (driveUrl) {
+        p.photo = driveUrl; p.drivePhotoUrl = driveUrl;
+        saveLocalData(); pushToSheet(p); renderAll();
+        toast('☁️ Foto tersimpan di Drive!');
+      } else {
+        pushToSheet(p);
+      }
+    });
+  } else {
+    pushToSheet(p);
+  }
 }
 
 // ========== CALCULATIONS ==========
