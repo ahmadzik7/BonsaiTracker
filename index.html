@@ -670,7 +670,23 @@
       <div class="form-grid">
         <div class="form-group"><label>Nama Pohon *</label><input type="text" id="f-name" placeholder="e.g. Ficus si Kecil"></div>
         <div class="form-group"><label>Nomor Pohon *</label><input type="text" id="f-number" placeholder="e.g. BSN-001"></div>
-        <div class="form-group"><label>Spesies / Jenis</label><input type="text" id="f-species" placeholder="e.g. Ficus Retusa"></div>
+        <div class="form-group" style="position:relative;">
+          <label>Spesies / Jenis</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="text" id="f-species" placeholder="Ketik nama tanaman..." autocomplete="off"
+              oninput="onSpeciesInput(this.value)" onblur="setTimeout(()=>closeSpeciesDrop(),200)">
+            <button type="button" id="aiRecBtn" onclick="fetchAiWatering()" title="Cari rekomendasi siram"
+              style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1.5px solid rgba(74,140,92,0.3);background:var(--dew);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;"
+              onmouseover="this.style.background='rgba(74,140,92,0.15)'" onmouseout="this.style.background='var(--dew)'">🤖</button>
+            <a id="googleSearchBtn" href="#" target="_blank" title="Cari di Google"
+              style="flex-shrink:0;width:36px;height:36px;border-radius:10px;border:1.5px solid rgba(74,140,92,0.3);background:var(--dew);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;text-decoration:none;transition:all 0.2s;"
+              onmouseover="this.style.background='rgba(74,140,92,0.15)'" onmouseout="this.style.background='var(--dew)'">🔍</a>
+          </div>
+          <!-- Dropdown suggestions -->
+          <div id="speciesDrop" style="display:none;position:absolute;top:100%;left:0;right:52px;background:white;border:1.5px solid rgba(74,140,92,0.25);border-radius:12px;box-shadow:0 8px 24px rgba(26,58,42,0.12);z-index:200;overflow:hidden;margin-top:4px;"></div>
+          <!-- AI Recommendation panel -->
+          <div id="aiRecPanel" style="display:none;margin-top:8px;background:linear-gradient(135deg,rgba(26,58,42,0.04),rgba(74,140,92,0.06));border:1.5px solid rgba(74,140,92,0.2);border-radius:14px;padding:14px;font-size:12px;line-height:1.7;color:var(--forest);"></div>
+        </div>
         <div class="form-group"><label>Tanggal Mulai Tanam</label><input type="date" id="f-date"></div>
         <div class="form-group"><label>Lokasi Pot</label><input type="text" id="f-location" placeholder="e.g. Teras Depan, Rak A"></div>
         <div class="form-group"><label>Frekuensi Siram (hari)</label><input type="number" id="f-waterfreq" min="1" max="30" value="2"></div>
@@ -1202,152 +1218,301 @@ function triggerPhotoUpdate(id) {
 async function downloadLabel(id) {
   const p = plants.find(x => x.id === id);
   if (!p) return;
-  const age = calcAge(p.date);
 
-  const W = 600, H = 340;
+  // Label size: compact pot label — only name, ID, barcode
+  const W = 400, H = 180;
   const canvas = document.getElementById('labelCanvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  // Background
+  // White background
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
 
-  // Green accent bar top
+  // Top green bar
   ctx.fillStyle = '#1a3a2a';
-  ctx.fillRect(0, 0, W, 8);
+  ctx.fillRect(0, 0, W, 6);
 
-  // Border
+  // Outer border
   ctx.strokeStyle = '#1a3a2a';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(1, 1, W-2, H-2);
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(1, 1, W - 2, H - 2);
 
-  // Inner border (decorative)
-  ctx.strokeStyle = 'rgba(74,140,92,0.3)';
+  // Plant name — large, centered
+  ctx.fillStyle = '#1a3a2a';
+  ctx.font = 'bold 26px Georgia, serif';
+  ctx.textAlign = 'center';
+  // Truncate if too long
+  let nameText = p.name;
+  if (ctx.measureText(nameText).width > W - 40) {
+    while (ctx.measureText(nameText + '…').width > W - 40 && nameText.length > 3) nameText = nameText.slice(0, -1);
+    nameText += '…';
+  }
+  ctx.fillText(nameText, W / 2, 46);
+
+  // ID below name
+  ctx.fillStyle = '#4a8c5c';
+  ctx.font = 'bold 13px monospace';
+  ctx.letterSpacing = '2px';
+  ctx.fillText(p.id, W / 2, 65);
+
+  // Divider
+  ctx.strokeStyle = 'rgba(74,140,92,0.25)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(10, 14, W-20, H-24);
+  ctx.beginPath(); ctx.moveTo(30, 76); ctx.lineTo(W - 30, 76); ctx.stroke();
 
-  // Brand top
-  ctx.fillStyle = '#2d5a3d';
-  ctx.font = 'bold 11px DM Sans, sans-serif';
+  // ── Barcode (Code 128 accurate encoding) ──
+  const barData = encodeCode128(p.id);
+  const barcodeAreaW = W - 40;
+  const barW = barcodeAreaW / barData.length;
+  const barY = 84, barH = 68;
+
+  ctx.fillStyle = '#000000';
+  let bx = 20;
+  for (const bit of barData) {
+    if (bit === 1) ctx.fillRect(bx, barY, barW, barH);
+    bx += barW;
+  }
+
+  // Barcode ID text below bars
+  ctx.fillStyle = '#1a3a2a';
+  ctx.font = 'bold 11px monospace';
   ctx.textAlign = 'center';
   ctx.letterSpacing = '3px';
-  ctx.fillText('🌿  BONSAI GARDEN TRACKER', W/2, 34);
+  ctx.fillText(p.id, W / 2, barY + barH + 14);
 
-  // Horizontal rule
-  ctx.strokeStyle = 'rgba(74,140,92,0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(20, 42); ctx.lineTo(W-20, 42); ctx.stroke();
-
-  // Plant name (large)
+  // Bottom green bar
   ctx.fillStyle = '#1a3a2a';
-  ctx.font = 'bold 36px Playfair Display, Georgia, serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(p.name, 24, 85);
+  ctx.fillRect(0, H - 5, W, 5);
 
-  // Species (italic)
-  ctx.fillStyle = '#7fb08a';
-  ctx.font = 'italic 15px Georgia, serif';
-  ctx.fillText(p.species || 'Spesies tidak diketahui', 24, 108);
-
-  // Info grid
-  const infos = [
-    { label: 'ID POHON', value: p.id },
-    { label: 'USIA', value: age.text },
-    { label: 'SIRAM TIAP', value: `${p.waterFreq} hari` },
-    { label: 'LOKASI', value: p.location || '—' },
-  ];
-  infos.forEach((inf, i) => {
-    const x = 24 + (i % 2) * 290, y = 140 + Math.floor(i/2) * 50;
-    ctx.fillStyle = '#e8f4ec';
-    roundRect(ctx, x, y, 260, 38, 8);
-    ctx.fill();
-    ctx.fillStyle = '#7fb08a';
-    ctx.font = 'bold 9px DM Sans, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(inf.label, x+10, y+13);
-    ctx.fillStyle = '#1a3a2a';
-    ctx.font = 'bold 14px DM Sans, sans-serif';
-    ctx.fillText(inf.value.slice(0, 22), x+10, y+29);
-  });
-
-  // Barcode simulation using vertical bars
-  ctx.fillStyle = '#1a3a2a';
-  const barcodeX = 24, barcodeY = 252, barcodeW = 340, barcodeH = 50;
-  // Draw barcode pattern
-  const code = p.id.replace(/[^A-Z0-9-]/g, '');
-  let xPos = barcodeX;
-  const barUnit = barcodeW / (code.length * 12 + 24);
-  // Start/stop guards
-  drawBars(ctx, xPos, barcodeY, barUnit, barcodeH, [1,1,0,1,1,0,1]); xPos += barUnit * 8;
-  for (const ch of code) {
-    const pattern = charPattern(ch);
-    drawBars(ctx, xPos, barcodeY, barUnit, barcodeH, pattern); xPos += barUnit * (pattern.length + 1);
-  }
-  drawBars(ctx, xPos, barcodeY, barUnit, barcodeH, [1,1,0,1,1,0,1,1]);
-
-  // Barcode text below
-  ctx.fillStyle = '#2d5a3d';
-  ctx.font = 'bold 13px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(p.id, barcodeX + barcodeW/2, barcodeY + barcodeH + 16);
-
-  // QR-like info on right
-  ctx.fillStyle = '#1a3a2a';
-  ctx.font = '10px DM Sans, sans-serif';
-  ctx.textAlign = 'right';
-  const rightX = W - 24;
-  ctx.fillText(`Ditanam: ${fmtDate(p.date)}`, rightX, 265);
-  ctx.fillText(`Terakhir siram: ${fmtDate(p.lastWater)}`, rightX, 280);
-  ctx.fillText(`Style: ${(p.style||'—').split('(')[0].trim()}`, rightX, 295);
-
-  // Footer line
-  ctx.strokeStyle = 'rgba(74,140,92,0.2)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(20, H-22); ctx.lineTo(W-20, H-22); ctx.stroke();
-
-  // Footer text
-  ctx.fillStyle = '#b8d4bf';
-  ctx.font = '9px DM Sans, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(`Bonsai Garden Tracker  ·  ID: ${p.id}  ·  ${new Date().getFullYear()}`, W/2, H-10);
-
-  // Download
+  // Download PNG
   const link = document.createElement('a');
-  link.download = `label-bonsai-${p.id}.png`;
+  link.download = `label-${p.id}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
-  toast(`🏷️ Label ${p.name} berhasil didownload!`);
+  toast(`🏷️ Label ${p.name} didownload!`);
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x+r, y);
-  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y, x+w, y+r, r);
-  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
-  ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r);
-  ctx.lineTo(x, y+r); ctx.arcTo(x, y, x+r, y, r);
-  ctx.closePath();
-}
+// ── Proper Code 128B encoder ──
+function encodeCode128(text) {
+  const C128B = {
+    ' ':0,'!':1,'"':2,'#':3,'$':4,'%':5,'&':6,"'":7,'(':8,')':9,'*':10,'+':11,',':12,'-':13,'.':14,'/':15,
+    '0':16,'1':17,'2':18,'3':19,'4':20,'5':21,'6':22,'7':23,'8':24,'9':25,':':26,';':27,'<':28,'=':29,'>':30,
+    '?':31,'@':32,'A':33,'B':34,'C':35,'D':36,'E':37,'F':38,'G':39,'H':40,'I':41,'J':42,'K':43,'L':44,'M':45,
+    'N':46,'O':47,'P':48,'Q':49,'R':50,'S':51,'T':52,'U':53,'V':54,'W':55,'X':56,'Y':57,'Z':58,'[':59,'\\':60,
+    ']':61,'^':62,'_':63,'`':64,'a':65,'b':66,'c':67,'d':68,'e':69,'f':70,'g':71,'h':72,'i':73,'j':74,'k':75,
+    'l':76,'m':77,'n':78,'o':79,'p':80,'q':81,'r':82,'s':83,'t':84,'u':85,'v':86,'w':87,'x':88,'y':89,'z':90
+  };
+  // Code 128 bar patterns (11 bars each, 1=bar 0=space)
+  const PATTERNS = [
+    '11011001100','11001101100','11001100110','10010011000','10010001100',
+    '10001001100','10011001000','10011000100','10001100100','11001001000',
+    '11001000100','11000100100','10110011100','10011011100','10011001110',
+    '10111001100','10011101100','10011100110','11001110010','11001011100',
+    '11001001110','11011100100','11001110100','11101101110','11101001100',
+    '11100101100','11100100110','11101100100','11100110100','11100110010',
+    '11011011000','11011000110','11000110110','10100011000','10001011000',
+    '10001000110','10110001000','10001101000','10001100010','11010001000',
+    '11000101000','11000100010','10110111000','10110001110','10001101110',
+    '10111011000','10111000110','10001110110','11101110110','11010001110',
+    '11000101110','11011101000','11011100010','11011101110','11101011000',
+    '11101000110','11100010110','11101101000','11101100010','11100011010',
+    '11101111010','11001000010','11110001010','10100110000','10100001100',
+    '10010110000','10010000110','10000101100','10000100110','10110010000',
+    '10110000100','10011010000','10011000010','10000110100','10000110010',
+    '11000010010','11001010000','11110111010','11000010100','10001111010',
+    '10100111100','10010111100','10010011110','10111100100','10011110100',
+    '10011110010','11110100100','11110010100','11110010010','11011011110',
+    '11011110110','11110110110','10101111000','10100011110','10001011110',
+    '10111101000','10111100010','11110101000','11110100010','10111011110',
+    '10111101110','11101011110','11110101110','11010000100','11010010000',
+    '11010011100','1100011101011' // STOP
+  ];
+  const STARB = 104; // START B
+  const STOP  = 106;
 
-function drawBars(ctx, x, y, unit, h, pattern) {
-  let xOff = 0;
-  for (const b of pattern) {
-    if (b) { ctx.fillRect(x+xOff, y, unit*0.9, h); }
-    xOff += unit;
+  const upper = text.toUpperCase();
+  let vals = [STARB];
+  let check = STARB;
+  for (let i = 0; i < upper.length; i++) {
+    const ch = upper[i];
+    const v = C128B[ch] !== undefined ? C128B[ch] : C128B[' '];
+    vals.push(v);
+    check += v * (i + 1);
   }
-}
+  vals.push(check % 103); // checksum
+  vals.push(STOP);
 
-function charPattern(c) {
-  const code = c.charCodeAt(0);
-  // Simple pseudo-barcode pattern based on character code
-  const n = code % 64;
-  const bits = [];
-  for (let i = 0; i < 7; i++) bits.push((n >> (6-i)) & 1);
+  let bits = [];
+  for (const v of vals) {
+    const pat = PATTERNS[v] || PATTERNS[0];
+    for (const b of pat) bits.push(parseInt(b));
+  }
   return bits;
 }
 
-// ========== BARCODE SCANNER (Multi-engine) ==========
+// ========== SPECIES SEARCH + AI WATERING ==========
+
+// Built-in bonsai species database with watering frequency
+const SPECIES_DB = [
+  { name: 'Ficus Retusa', freq: 2, notes: 'Toleran kekeringan, siram saat media mulai kering. Kurangi di musim hujan.' },
+  { name: 'Ficus Benjamina', freq: 2, notes: 'Suka kelembaban stabil. Hindari tanah terlalu basah agar akar tidak busuk.' },
+  { name: 'Ficus Microcarpa', freq: 2, notes: 'Siram 2 hari sekali di musim kemarau, 3-4 hari di musim hujan.' },
+  { name: 'Juniperus Procumbens', freq: 3, notes: 'Biarkan media sedikit mengering antar siram. Jangan terlalu lembab.' },
+  { name: 'Juniperus Chinensis', freq: 3, notes: 'Siram menyeluruh lalu biarkan kering sebagian. Butuh drainase baik.' },
+  { name: 'Serissa Foetida', freq: 1, notes: 'Suka lembab konsisten. Siram setiap hari di cuaca panas, jangan sampai kering total.' },
+  { name: 'Serissa Japonica', freq: 1, notes: 'Kelembaban tinggi penting. Semprot daun di musim kering.' },
+  { name: 'Bougainvillea', freq: 2, notes: 'Toleran kekeringan saat sudah dewasa. Kurangi siram untuk memicu pembungaan.' },
+  { name: 'Carmona Retusa', freq: 1, notes: 'Jaga media selalu lembab tapi tidak tergenang. Semprot daun pagi hari.' },
+  { name: 'Premna Obtusifolia', freq: 2, notes: 'Siram 2 hari sekali. Kurangi di musim hujan, tambah di musim kemarau.' },
+  { name: 'Wrightia Religiosa', freq: 1, notes: 'Suka banyak air. Siram setiap hari, pastikan drainase lancar.' },
+  { name: 'Fukien Tea', freq: 1, notes: 'Jaga selalu lembab. Sensitif terhadap kekeringan, daun bisa rontok.' },
+  { name: 'Adenium', freq: 4, notes: 'Sukulen — sangat toleran kekeringan. Siram jarang, biarkan media kering dulu.' },
+  { name: 'Azalea', freq: 1, notes: 'Butuh air banyak, terutama saat berbunga. Gunakan air hujan atau air bersih (bukan air kapur).' },
+  { name: 'Maple Jepang', freq: 1, notes: 'Suka lembab. Siram tiap hari di musim panas, kurangi di musim dingin/hujan.' },
+  { name: 'Acer Palmatum', freq: 1, notes: 'Jaga lembab konsisten, terutama musim panas. Bisa mati cepat jika kering.' },
+  { name: 'Pine / Pinus', freq: 3, notes: 'Biarkan media sedikit kering antar siram. Terlalu basah berbahaya untuk pinus.' },
+  { name: 'Pinus Thunbergii', freq: 3, notes: 'Siram menyeluruh, biarkan mengering sebagian. Jangan siram tiap hari.' },
+  { name: 'Chinese Elm', freq: 2, notes: 'Siram saat permukaan media mulai kering. Cukup toleran terhadap variasi.' },
+  { name: 'Ulmus Parvifolia', freq: 2, notes: 'Siram 2 hari sekali di cuaca normal. Pantau saat cuaca sangat panas.' },
+  { name: 'Trident Maple', freq: 1, notes: 'Butuh air cukup banyak. Siram tiap hari di musim panas.' },
+  { name: 'Portulacaria Afra', freq: 5, notes: 'Sukulen — siram sangat jarang. Biarkan kering total dulu sebelum disiram lagi.' },
+  { name: 'Schefflera', freq: 2, notes: 'Siram saat media atas mulai kering. Toleran tapi tidak suka tergenang.' },
+  { name: 'Anting Putri', freq: 2, notes: 'Siram 2 hari sekali. Suka sinar matahari penuh dan drainase baik.' },
+  { name: 'Beringin', freq: 2, notes: 'Siram teratur 2 hari sekali. Tahan berbagai kondisi, tapi hindari kekeringan panjang.' },
+  { name: 'Santigi', freq: 2, notes: 'Siram 2 hari sekali. Cocok iklim tropis, tahan panas.' },
+  { name: 'Asem Jawa', freq: 3, notes: 'Toleran kekeringan. Siram 3 hari sekali sudah cukup.' },
+  { name: 'Cemara Udang', freq: 2, notes: 'Siram 2 hari sekali. Suka kelembaban sedang, tidak terlalu basah.' },
+  { name: 'Buxus', freq: 2, notes: 'Jaga lembab merata. Siram 2 hari sekali, lebih sering di cuaca panas.' },
+  { name: 'Privet', freq: 2, notes: 'Siram 2 hari sekali. Toleran, tapi jaga agar media tidak kering total.' },
+];
+
+function onSpeciesInput(val) {
+  const q = val.trim().toLowerCase();
+  const drop = document.getElementById('speciesDrop');
+  const googleBtn = document.getElementById('googleSearchBtn');
+
+  // Update Google search link
+  const query = encodeURIComponent(val + ' bonsai watering care schedule');
+  googleBtn.href = `https://www.google.com/search?q=${query}`;
+
+  // Hide AI panel when typing
+  document.getElementById('aiRecPanel').style.display = 'none';
+
+  if (!q || q.length < 2) { drop.style.display = 'none'; return; }
+
+  // Match from DB
+  const matches = SPECIES_DB.filter(s =>
+    s.name.toLowerCase().includes(q)
+  ).slice(0, 6);
+
+  // Also match from existing plants
+  const existingSpecies = [...new Set(plants.map(p => p.species).filter(s => s && s.toLowerCase().includes(q)))];
+
+  const allMatches = [...new Map([
+    ...matches.map(m => [m.name, m]),
+    ...existingSpecies.filter(s => !matches.find(m => m.name === s)).map(s => [s, { name: s, freq: null, notes: null }])
+  ]).values()];
+
+  if (!allMatches.length) { drop.style.display = 'none'; return; }
+
+  drop.innerHTML = allMatches.map(m => `
+    <div onclick="selectSpecies('${m.name.replace(/'/g,"\\'")}', ${m.freq})"
+      style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(74,140,92,0.08);display:flex;align-items:center;justify-content:space-between;gap:10px;transition:background 0.15s;"
+      onmouseover="this.style.background='var(--dew)'" onmouseout="this.style.background='white'">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--forest);">${m.name}</div>
+        ${m.notes ? `<div style="font-size:10px;color:var(--sage);margin-top:1px;">${m.notes.slice(0,55)}…</div>` : ''}
+      </div>
+      ${m.freq ? `<span style="background:rgba(91,163,201,0.15);color:#2a6e8c;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;">💧 ${m.freq}h</span>` : ''}
+    </div>`).join('');
+  drop.style.display = 'block';
+}
+
+function selectSpecies(name, freq) {
+  document.getElementById('f-species').value = name;
+  document.getElementById('speciesDrop').style.display = 'none';
+  if (freq) {
+    document.getElementById('f-waterfreq').value = freq;
+    // Show the matching notes
+    const match = SPECIES_DB.find(s => s.name === name);
+    if (match) showAiPanel(`🌿 <strong>${name}</strong><br><br>💧 <strong>Frekuensi siram:</strong> Setiap <strong>${freq} hari</strong><br><br>📝 ${match.notes}`, false);
+  }
+}
+
+function closeSpeciesDrop() {
+  document.getElementById('speciesDrop').style.display = 'none';
+}
+
+async function fetchAiWatering() {
+  const species = document.getElementById('f-species').value.trim();
+  if (!species) { toast('⚠️ Isi nama spesies dulu', 'warn'); return; }
+
+  const btn = document.getElementById('aiRecBtn');
+  btn.textContent = '⏳';
+  btn.style.pointerEvents = 'none';
+  showAiPanel('🤖 Menghubungi AI…', true);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        system: 'Kamu adalah ahli botani bonsai berpengalaman. Jawab dalam Bahasa Indonesia, singkat dan praktis. Format: mulai langsung dengan angka frekuensi siram dan penjelasan singkat. Gunakan emoji untuk keterbacaan.',
+        messages: [{
+          role: 'user',
+          content: `Berikan rekomendasi penyiraman untuk bonsai ${species} di iklim tropis Indonesia. Sertakan: (1) frekuensi siram ideal dalam hari, (2) tips khusus musim kemarau vs hujan, (3) tanda-tanda terlalu banyak atau kurang air. Maksimal 5 kalimat pendek.`
+        }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data?.content?.[0]?.text || 'Tidak ada respons dari AI.';
+
+    // Try to extract frequency number from response
+    const freqMatch = text.match(/(\d+)\s*[-–]\s*(\d+)\s*hari|setiap\s*(\d+)\s*hari|(\d+)\s*hari\s*sekali/i);
+    if (freqMatch) {
+      const freq = parseInt(freqMatch[1] || freqMatch[3] || freqMatch[4]);
+      if (freq >= 1 && freq <= 14) document.getElementById('f-waterfreq').value = freq;
+    }
+
+    showAiPanel(`🤖 <strong>Rekomendasi AI untuk ${species}:</strong><br><br>${text.replace(/\n/g, '<br>')}`, false);
+    toast('✅ Rekomendasi AI berhasil dimuat');
+
+  } catch(e) {
+    // Fallback to DB
+    const match = SPECIES_DB.find(s => s.name.toLowerCase().includes(species.toLowerCase()));
+    if (match) {
+      document.getElementById('f-waterfreq').value = match.freq;
+      showAiPanel(`📚 <strong>Data dari database untuk ${match.name}:</strong><br><br>💧 Frekuensi siram: setiap <strong>${match.freq} hari</strong><br><br>📝 ${match.notes}<br><br><small style="color:var(--sage);">AI tidak tersedia — menampilkan data lokal</small>`, false);
+    } else {
+      showAiPanel(`⚠️ AI tidak tersedia dan spesies tidak ditemukan di database lokal.<br><br>Coba klik 🔍 untuk cari di Google.`, false);
+    }
+  }
+
+  btn.textContent = '🤖';
+  btn.style.pointerEvents = 'auto';
+}
+
+function showAiPanel(html, loading = false) {
+  const panel = document.getElementById('aiRecPanel');
+  panel.style.display = 'block';
+  panel.innerHTML = loading
+    ? `<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:18px;animation:spin 1s linear infinite;display:inline-block;">⏳</span> ${html}</div>`
+    : html;
+}
+
+// Spin animation for loader
+if (!document.getElementById('spin-style')) {
+  const s = document.createElement('style');
+  s.id = 'spin-style';
+  s.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+  document.head.appendChild(s);
+}
+
+
 // Engine priority: 1) html5-qrcode  2) native BarcodeDetector API  3) camera-only fallback
 let html5QrScanner = null;
 let nativeScanInterval = null;
