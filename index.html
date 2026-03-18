@@ -1037,7 +1037,7 @@ let currentPhoto = null;
 let currentPhotoFile = null;
 let currentPhotoHQ = null; // HQ version for Drive upload
 let currentView = 'grid';
-let sheetUrl = 'https://script.google.com/macros/s/AKfycbweZ-50LsMgZkNQkvQrIWw9iN-IyV2PpV1ZLPqg_FZXOdo74UVboBAiVac15QfuikHt/exec';
+let sheetUrl = 'https://script.google.com/macros/s/AKfycbxGYlIg2_pf5jsk-dPM62b8F747n3jt8zcScHyICe_H63OKz0PcvdnhGK1-LWJQCsvc0w/exec';
 let scannerActive = false;
 let deferredInstallPrompt = null;
 let pendingTimelinePlantId = null;
@@ -1088,7 +1088,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ========== CONFIG & SYNC ==========
-const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxGYlIg2_pf5jsk-dPM62b8F747n3jt8zcScHyICe_H63OKz0PcvdnhGK1-LWJQCsvc0w/exec';
+const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbweZ-50LsMgZkNQkvQrIWw9iN-IyV2PpV1ZLPqg_FZXOdo74UVboBAiVac15QfuikHt/exec';
 
 function loadConfig() {
   sheetUrl = localStorage.getItem('bonsai_sheet_url') || DEFAULT_SHEET_URL;
@@ -1114,76 +1114,171 @@ function toggleConfigHelp() {
 }
 
 function syncNow() {
-  if (sheetUrl) testConnection();
-  else toast('⚠️ Belum ada Apps Script URL', 'warn');
+  if (!sheetUrl) { toast('⚠️ Belum ada Apps Script URL', 'warn'); return; }
+  setSyncStatus('syncing', 'Sinkronisasi...');
+  fetchFromSheet().then(data => {
+    if (data !== null) {
+      setSyncStatus(true);
+      toast(`✅ Sync OK — ${data.length} pohon di Sheets`);
+      if (data.length > 0) { plants = data; saveLocalData(); renderAll(); }
+    } else {
+      setSyncStatus(false);
+      toast('⚠️ Gagal sync, coba lagi', 'warn');
+    }
+  }).catch(() => { setSyncStatus(false); toast('❌ Koneksi gagal', 'warn'); });
 }
 
 function testConnection() {
   if (!sheetUrl) return;
-  document.getElementById('syncText').textContent = 'Menghubungkan...';
-  document.getElementById('syncDot').className = 'sync-dot';
+  setSyncStatus('syncing', 'Menghubungkan...');
   fetchFromSheet().then(data => {
-    if (data) { setSyncStatus(true); if (data.length > 0) { plants = data; saveLocalData(); renderAll(); toast(`✅ Sinkronisasi berhasil — ${data.length} pohon`); } }
+    if (data !== null) {
+      setSyncStatus(true);
+      if (data.length > 0) {
+        plants = data; saveLocalData(); renderAll();
+        toast(`✅ Sync berhasil — ${data.length} pohon`);
+      } else {
+        // Sheet kosong tapi konek OK — push data lokal ke Sheets
+        if (plants.length > 0) {
+          toast('📤 Sheet kosong — mengupload data lokal...');
+          scheduleSheetSave();
+        } else {
+          toast('✅ Terhubung ke Sheets');
+        }
+      }
+    } else {
+      setSyncStatus(false, 'Gagal konek — data lokal aman');
+    }
   }).catch(() => setSyncStatus(false));
 }
 
-function setSyncStatus(ok) {
-  document.getElementById('syncDot').className = 'sync-dot' + (ok ? '' : ' offline');
-  document.getElementById('syncText').textContent = ok ? 'Tersinkronisasi ✓' : 'Offline — data lokal';
+function setSyncStatus(ok, msg) {
+  const dot  = document.getElementById('syncDot');
+  const text = document.getElementById('syncText');
+  if (!dot || !text) return;
+  if (ok === 'syncing') {
+    dot.className = 'sync-dot';
+    text.textContent = msg || 'Menyimpan...';
+  } else if (ok === true || ok === 'ok') {
+    dot.className = 'sync-dot';
+    const ts = new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+    text.textContent = msg || ('Tersinkronisasi ✓ ' + ts);
+  } else {
+    dot.className = 'sync-dot offline';
+    text.textContent = msg || 'Offline — data lokal aman';
+  }
 }
 
 async function fetchFromSheet() {
   if (!sheetUrl) return null;
-  const res = await fetch(sheetUrl + '?action=getAll');
+  const res  = await fetch(sheetUrl + '?t=' + Date.now(), { redirect: 'follow' });
   const json = await res.json();
-  return json.status === 'ok' ? sanitizePlants(json.data) : null;
+  // Support format baru ({ status:'ok', data:[] }) dan lama ({ data:[] })
+  if (json.status === 'ok' || Array.isArray(json.data)) {
+    return sanitizePlants(json.data || []);
+  }
+  return null;
 }
 
-async function pushToSheet(plant) {
+// ── Save semua plants ke Sheets sebagai JSON blob (atomic) ──
+// Pattern dari CI Command Center: tidak ada row-per-row, satu cell A1 = semua data
+let _saveDebounce = null;
+let _isSaving = false;
+let _pendingSave = false;
+
+function pushToSheet(plant) {
+  // Panggil saveAllToSheet dengan debounce — tidak perlu await
+  scheduleSheetSave();
+}
+
+function scheduleSheetSave() {
   if (!sheetUrl) return;
+  clearTimeout(_saveDebounce);
+  setSyncStatus(false); // tampilkan "akan disimpan"
+  _saveDebounce = setTimeout(() => {
+    _saveDebounce = null;
+    doSheetSave();
+  }, 1200); // debounce 1.2s — tunggu kalau ada perubahan beruntun
+}
+
+async function doSheetSave() {
+  if (_isSaving) { _pendingSave = true; return; }
+  _isSaving = true;
+  _pendingSave = false;
+
   try {
-    // Strip base64 — hanya kirim metadata + Drive URL
-    const payload = { ...plant };
-    if (payload.photo && payload.photo.startsWith('data:')) {
-      payload.photo = isValidPhotoSrc(payload.drivePhotoUrl) ? payload.drivePhotoUrl : '';
-    }
-    if (payload.photoTimeline) {
-      payload.photoTimeline = payload.photoTimeline.map(t => ({
+    // Strip base64 dari semua plants sebelum kirim ke Sheets
+    const slim = plants.map(p => ({
+      ...p,
+      photo: isValidPhotoSrc(p.photo) && !p.photo.startsWith('data:') ? p.photo : (isValidPhotoSrc(p.drivePhotoUrl) ? p.drivePhotoUrl : ''),
+      drivePhotoUrl: isValidPhotoSrc(p.drivePhotoUrl) ? p.drivePhotoUrl : '',
+      photoTimeline: (p.photoTimeline || []).map(t => ({
         ...t,
-        url: (t.url && t.url.startsWith('data:')) ? '' : (t.url || '')
-      }));
-    }
-    // Gunakan text/plain agar Apps Script bisa baca body (bypass CORS preflight)
-    // BUKAN no-cors — no-cors tidak bisa baca response & Apps Script tidak terima JSON header
+        url: isValidPhotoSrc(t.url) && !t.url.startsWith('data:') ? t.url : ''
+      })).filter(t => t.url) // hanya entri dengan Drive URL
+    }));
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+
     const res = await fetch(sheetUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'upsert', data: payload }),
-      redirect: 'follow'
+      body: JSON.stringify({ action: 'saveAll', data: slim }),
+      redirect: 'follow',
+      signal: controller.signal
     });
-    // Response bisa opaque (redirect) atau json — keduanya OK untuk upsert
+    clearTimeout(timeout);
+
     setSyncStatus(true);
-    console.log('[Sheet] pushToSheet OK:', plant.id, '| photo:', payload.photo ? payload.photo.substring(0,40) : 'none');
+    const ts = new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+    console.log('[Sheet] saveAll OK:', slim.length, 'plants at', ts);
+
   } catch(e) {
-    console.error('[Sheet] pushToSheet error:', e.message);
+    const reason = e.name === 'AbortError' ? 'Timeout' : e.message;
+    console.error('[Sheet] saveAll error:', reason);
     setSyncStatus(false);
+    // Retry sekali setelah 5 detik
+    setTimeout(() => { if (!_saveDebounce && !_isSaving) doSheetSave(); }, 5000);
+  } finally {
+    _isSaving = false;
+    if (_pendingSave) {
+      _pendingSave = false;
+      setTimeout(doSheetSave, 300);
+    }
   }
 }
 
 async function deleteFromSheet(id) {
-  if (!sheetUrl) return;
-  try {
-    await fetch(sheetUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'delete', id }),
-      redirect: 'follow'
-    });
-  } catch(e) { console.error('[Sheet] deleteFromSheet error:', e.message); }
+  // Hapus sudah ditangani di deletePlant() yang update array plants
+  // lalu memanggil saveLocalData() + scheduleSheetSave()
+  // Tidak perlu action terpisah — next saveAll sudah exclude plant yang dihapus
+  scheduleSheetSave();
 }
 
 function checkSyncNeeded() {
-  if (sheetUrl) fetchFromSheet().then(data => { if (data) { plants = data; saveLocalData(); renderAll(); setSyncStatus(true); }}).catch(()=>{});
+  if (!sheetUrl || _isSaving || _saveDebounce) return;
+  fetchFromSheet().then(data => {
+    if (data && data.length > 0) {
+      // Hanya update kalau Sheets punya data lebih baru (lebih banyak pohon atau ada Drive URL baru)
+      const sheetsHasMore = data.some(sp => {
+        const local = plants.find(lp => lp.id === sp.id);
+        return !local || (sp.drivePhotoUrl && !local.drivePhotoUrl);
+      });
+      if (sheetsHasMore) {
+        // Merge: ambil drivePhotoUrl dari Sheets, pertahankan base64 lokal untuk tampilan
+        data.forEach(sp => {
+          const lp = plants.find(x => x.id === sp.id);
+          if (lp && sp.drivePhotoUrl && !lp.drivePhotoUrl) {
+            lp.drivePhotoUrl = sp.drivePhotoUrl;
+            lp.photo = sp.drivePhotoUrl; // tampilkan dari Drive
+          }
+        });
+        saveLocalData(); renderAll();
+        setSyncStatus(true, 'Diperbarui ✓');
+      }
+    }
+  }).catch(() => {});
 }
 
 // ========== DRIVE PHOTO UPLOAD ==========
@@ -1227,7 +1322,8 @@ async function uploadPhotoToDrive(plantId, base64Data, filename) {
     try { json = JSON.parse(text); }
     catch(e) { console.error('[Drive] Response not JSON:', text.substring(0,100)); return null; }
     
-    if (json.status === 'ok' && json.driveUrl) {
+    // Support format baru ({ok:true, driveUrl:...}) dan lama ({status:'ok', driveUrl:...})
+    if ((json.ok === true || json.status === 'ok') && json.driveUrl) {
       console.log('[Drive] Upload success! URL:', json.driveUrl);
       return json.driveUrl;
     }
