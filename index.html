@@ -1216,15 +1216,22 @@ async function doSheetSave() {
 
   try {
     // Strip base64 dari semua plants sebelum kirim ke Sheets
-    const slim = plants.map(p => ({
-      ...p,
-      photo: isValidPhotoSrc(p.photo) && !p.photo.startsWith('data:') ? p.photo : (isValidPhotoSrc(p.drivePhotoUrl) ? p.drivePhotoUrl : ''),
-      drivePhotoUrl: isValidPhotoSrc(p.drivePhotoUrl) ? p.drivePhotoUrl : '',
-      photoTimeline: (p.photoTimeline || []).map(t => ({
-        ...t,
-        url: isValidPhotoSrc(t.url) && !t.url.startsWith('data:') ? t.url : ''
-      })).filter(t => t.url) // hanya entri dengan Drive URL
-    }));
+    const slim = plants.map(p => {
+      // Tentukan foto untuk dikirim ke Sheets:
+      // Kalau ada Drive URL → pakai itu (akan ditampilkan saat refresh)
+      // Kalau hanya base64 → kirim kosong (jangan simpan base64 ke Sheets)
+      const photoForSheets = isValidPhotoSrc(p.drivePhotoUrl) ? p.drivePhotoUrl
+                           : (isValidPhotoSrc(p.photo) && !p.photo.startsWith('data:') ? p.photo : '');
+      return {
+        ...p,
+        photo: photoForSheets,
+        drivePhotoUrl: isValidPhotoSrc(p.drivePhotoUrl) ? p.drivePhotoUrl : '',
+        photoTimeline: (p.photoTimeline || []).map(t => ({
+          ...t,
+          url: isValidPhotoSrc(t.url) && !t.url.startsWith('data:') ? t.url : ''
+        })).filter(t => t.url)
+      };
+    });
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
@@ -1401,15 +1408,20 @@ function saveLocalData() {
   }
 }
 function sanitizePlants(arr) {
-  return (arr || []).map(p => ({
-    ...p,
-    photo: isValidPhotoSrc(p.photo) ? p.photo : null,
-    drivePhotoUrl: isValidPhotoSrc(p.drivePhotoUrl) ? p.drivePhotoUrl : null,
-    photoTimeline: (p.photoTimeline || []).map(t => ({
-      ...t,
-      url: isValidPhotoSrc(t.url) ? t.url : null
-    })).filter(t => t.url)
-  }));
+  return (arr || []).map(p => {
+    // Kalau photo kosong/invalid tapi drivePhotoUrl valid → pakai drivePhotoUrl
+    const driveUrl = isValidPhotoSrc(p.drivePhotoUrl) ? p.drivePhotoUrl : null;
+    const photoUrl = isValidPhotoSrc(p.photo) ? p.photo : driveUrl;
+    return {
+      ...p,
+      photo: photoUrl,
+      drivePhotoUrl: driveUrl,
+      photoTimeline: (p.photoTimeline || []).map(t => ({
+        ...t,
+        url: isValidPhotoSrc(t.url) ? t.url : null
+      })).filter(t => t.url)
+    };
+  });
 }
 
 /**
@@ -1432,12 +1444,20 @@ function mergePlantsFromSheets(sheetsData) {
     // 1. Drive URL dari Sheets (paling reliable, tidak hilang saat refresh)
     // 2. Drive URL dari lokal (kalau upload baru belum sync)
     // 3. Base64 dari lokal (fallback — hanya untuk sesi ini)
+    // Drive URL: ambil dari Sheets dulu, fallback lokal
     const bestDriveUrl = isValidPhotoSrc(sp.drivePhotoUrl) ? sp.drivePhotoUrl
                        : (lp && isValidPhotoSrc(lp.drivePhotoUrl) ? lp.drivePhotoUrl : null);
 
-    const bestPhoto = bestDriveUrl
-                    || (lp && isValidPhotoSrc(lp.photo) && !lp.photo.startsWith('data:') ? lp.photo : null)
-                    || bestDriveUrl  // Drive URL sebagai fallback photo juga
+    // Foto terbaik untuk DITAMPILKAN:
+    // 1. Drive URL (paling reliable — tidak hilang saat refresh)
+    // 2. Foto lokal non-base64 (URL eksternal)
+    // 3. Base64 dari lokal (hanya untuk sesi ini sebelum upload selesai)
+    const localBase64 = (lp && isValidPhotoSrc(lp.photo) && lp.photo.startsWith('data:')) ? lp.photo : null;
+    const localUrl    = (lp && isValidPhotoSrc(lp.photo) && !lp.photo.startsWith('data:')) ? lp.photo : null;
+
+    const bestPhoto = bestDriveUrl   // ← prioritas: Drive URL dari Sheets
+                    || localUrl      // ← non-base64 lokal
+                    || localBase64   // ← base64 lokal (sementara)
                     || null;
 
     // Merge photoTimeline:
@@ -1578,10 +1598,17 @@ async function savePlant() {
       uploadPhotoToDrive(id, b64, `${id}_main_${Date.now()}.jpg`).then(url => {
         if (url) {
           const p = plants.find(x => x.id === id);
-          if (p) { p.drivePhotoUrl = url; p.photo = url; saveLocalData(); pushToSheet(p); renderAll(); }
+          if (p) {
+            p.drivePhotoUrl = url;
+            p.photo = url;        // langsung tampilkan dari Drive
+            saveLocalData();
+            scheduleSheetSave();  // push semua plants ke Sheets (atomic)
+            renderAll();
+          }
           toast('☁️ Foto berhasil diupload ke Drive!');
         } else {
-          toast('💾 Foto tersimpan lokal (gagal ke Drive)', 'warn');
+          // Foto masih tersimpan lokal sebagai base64 — aman
+          toast('💾 Foto tersimpan lokal. Upload Drive gagal — akan coba lagi saat sync.', 'warn');
         }
       });
     }
@@ -1781,11 +1808,16 @@ async function updateMainPhoto(id, inputEl) {
     toast('📤 Mengupload ke Drive...');
     uploadPhotoToDrive(id, hq, `${id}_main_${Date.now()}.jpg`).then(driveUrl => {
       if (driveUrl) {
-        p.photo = driveUrl; p.drivePhotoUrl = driveUrl;
-        saveLocalData(); pushToSheet(p); renderAll();
+        p.photo = driveUrl;
+        p.drivePhotoUrl = driveUrl;
+        saveLocalData();
+        scheduleSheetSave(); // atomic save semua plants
+        renderAll();
         toast('☁️ Foto tersimpan di Drive!');
       } else {
-        pushToSheet(p);
+        // Foto base64 sudah tersimpan lokal di langkah sebelumnya
+        scheduleSheetSave();
+        toast('💾 Foto tersimpan lokal (Drive gagal)', 'warn');
       }
     });
   } else {
