@@ -1118,9 +1118,12 @@ function syncNow() {
   setSyncStatus('syncing', 'Sinkronisasi...');
   fetchFromSheet().then(data => {
     if (data !== null) {
+      if (data.length > 0) {
+        plants = mergePlantsFromSheets(data);
+        saveLocalData(); renderAll();
+      }
       setSyncStatus(true);
-      toast(`✅ Sync OK — ${data.length} pohon di Sheets`);
-      if (data.length > 0) { plants = data; saveLocalData(); renderAll(); }
+      toast(`✅ Sync OK — ${plants.length} pohon`);
     } else {
       setSyncStatus(false);
       toast('⚠️ Gagal sync, coba lagi', 'warn');
@@ -1133,17 +1136,22 @@ function testConnection() {
   setSyncStatus('syncing', 'Menghubungkan...');
   fetchFromSheet().then(data => {
     if (data !== null) {
-      setSyncStatus(true);
       if (data.length > 0) {
-        plants = data; saveLocalData(); renderAll();
+        // MERGE — jangan replace, gabungkan dengan data lokal
+        plants = mergePlantsFromSheets(data);
+        saveLocalData();
+        renderAll();
+        setSyncStatus(true);
         toast(`✅ Sync berhasil — ${data.length} pohon`);
       } else {
-        // Sheet kosong tapi konek OK — push data lokal ke Sheets
+        // Sheet kosong — push data lokal ke Sheets
         if (plants.length > 0) {
           toast('📤 Sheet kosong — mengupload data lokal...');
           scheduleSheetSave();
+          setSyncStatus(true);
         } else {
           toast('✅ Terhubung ke Sheets');
+          setSyncStatus(true);
         }
       }
     } else {
@@ -1260,20 +1268,15 @@ function checkSyncNeeded() {
   if (!sheetUrl || _isSaving || _saveDebounce) return;
   fetchFromSheet().then(data => {
     if (data && data.length > 0) {
-      // Hanya update kalau Sheets punya data lebih baru (lebih banyak pohon atau ada Drive URL baru)
-      const sheetsHasMore = data.some(sp => {
-        const local = plants.find(lp => lp.id === sp.id);
-        return !local || (sp.drivePhotoUrl && !local.drivePhotoUrl);
+      const changed = data.some(sp => {
+        const lp = plants.find(x => x.id === sp.id);
+        // Ada perubahan kalau: plant baru dari Sheets, atau Drive URL baru tersedia
+        return !lp
+          || (isValidPhotoSrc(sp.drivePhotoUrl) && !isValidPhotoSrc(lp.drivePhotoUrl))
+          || ((sp.photoTimeline || []).some(t => isValidPhotoSrc(t.url) && !(lp.photoTimeline||[]).find(lt => lt.date === t.date)));
       });
-      if (sheetsHasMore) {
-        // Merge: ambil drivePhotoUrl dari Sheets, pertahankan base64 lokal untuk tampilan
-        data.forEach(sp => {
-          const lp = plants.find(x => x.id === sp.id);
-          if (lp && sp.drivePhotoUrl && !lp.drivePhotoUrl) {
-            lp.drivePhotoUrl = sp.drivePhotoUrl;
-            lp.photo = sp.drivePhotoUrl; // tampilkan dari Drive
-          }
-        });
+      if (changed) {
+        plants = mergePlantsFromSheets(data);
         saveLocalData(); renderAll();
         setSyncStatus(true, 'Diperbarui ✓');
       }
@@ -1369,26 +1372,31 @@ async function compressPhoto(file, maxW=800, quality=0.75) {
 
 // ========== LOCAL STORAGE ==========
 function saveLocalData() {
+  // localStorage menyimpan data LENGKAP termasuk base64 (untuk tampil offline)
+  // Sheets hanya simpan Drive URL (lihat doSheetSave)
   try {
     localStorage.setItem('bonsai_plants', JSON.stringify(plants));
   } catch(e) {
-    console.error('[Storage] localStorage penuh atau error:', e.message);
-    // Coba simpan tanpa foto base64 (hanya metadata + Drive URL)
+    console.error('[Storage] localStorage penuh:', e.message);
+    // Fallback: simpan tanpa base64 besar, tapi pertahankan Drive URL
     try {
       const slim = plants.map(p => ({
         ...p,
+        // Kalau ada Drive URL → pakai itu sebagai photo juga (tidak perlu base64)
         photo: isValidPhotoSrc(p.drivePhotoUrl) ? p.drivePhotoUrl
-             : isValidPhotoSrc(p.photo) ? p.photo : null,
+             : (isValidPhotoSrc(p.photo) && !p.photo.startsWith('data:') ? p.photo : null),
+        // photoTimeline: simpan Drive URL, buang base64
         photoTimeline: (p.photoTimeline||[]).map(t => ({
           ...t,
-          url: isValidPhotoSrc(t.url) ? t.url : null
-        }))
+          url: isValidPhotoSrc(t.url) && !t.url.startsWith('data:') ? t.url : null
+        })).filter(t => t.url)
       }));
       localStorage.setItem('bonsai_plants', JSON.stringify(slim));
-      toast('⚠️ Storage penuh — foto lokal dihapus, gunakan Drive', 'warn');
+      console.warn('[Storage] Saved slim (Drive URLs only) — base64 dropped');
+      toast('⚠️ Storage penuh — foto lokal dihapus. Drive URL tetap aman.', 'warn');
     } catch(e2) {
-      console.error('[Storage] Bahkan slim save gagal:', e2.message);
-      toast('❌ Gagal menyimpan data — storage penuh!', 'warn');
+      console.error('[Storage] Slim save juga gagal:', e2.message);
+      toast('❌ Storage penuh! Hapus beberapa data atau gunakan Drive.', 'warn');
     }
   }
 }
@@ -1400,8 +1408,62 @@ function sanitizePlants(arr) {
     photoTimeline: (p.photoTimeline || []).map(t => ({
       ...t,
       url: isValidPhotoSrc(t.url) ? t.url : null
-    })).filter(t => t.url) // hapus entry tanpa foto
+    })).filter(t => t.url)
   }));
+}
+
+/**
+ * Merge data dari Sheets dengan data lokal.
+ * Prioritas:
+ * - Metadata (name, species, dll) → dari Sheets (lebih baru)
+ * - Drive URL → dari Sheets (otoritatif)
+ * - Foto base64 lokal → pertahankan kalau Drive URL belum ada
+ * - photoTimeline → gabungkan Drive URL dari Sheets + base64 lokal
+ */
+function mergePlantsFromSheets(sheetsData) {
+  // Build lookup dari data lokal saat ini
+  const localMap = {};
+  plants.forEach(p => { localMap[p.id] = p; });
+
+  return sheetsData.map(sp => {
+    const lp = localMap[sp.id]; // plant lokal dengan id sama
+
+    // Tentukan foto terbaik untuk ditampilkan:
+    // 1. Drive URL dari Sheets (paling reliable, tidak hilang saat refresh)
+    // 2. Drive URL dari lokal (kalau upload baru belum sync)
+    // 3. Base64 dari lokal (fallback — hanya untuk sesi ini)
+    const bestDriveUrl = isValidPhotoSrc(sp.drivePhotoUrl) ? sp.drivePhotoUrl
+                       : (lp && isValidPhotoSrc(lp.drivePhotoUrl) ? lp.drivePhotoUrl : null);
+
+    const bestPhoto = bestDriveUrl
+                    || (lp && isValidPhotoSrc(lp.photo) && !lp.photo.startsWith('data:') ? lp.photo : null)
+                    || bestDriveUrl  // Drive URL sebagai fallback photo juga
+                    || null;
+
+    // Merge photoTimeline:
+    // - Ambil semua entri dari Sheets (punya Drive URL)
+    // - Tambahkan entri lokal yang belum ada di Sheets (base64, belum terupload)
+    const sheetsTl = (sp.photoTimeline || []).filter(t => isValidPhotoSrc(t.url));
+    const sheetsDates = new Set(sheetsTl.map(t => t.date));
+    const localOnlyTl = lp ? (lp.photoTimeline || []).filter(t =>
+      !sheetsDates.has(t.date) && isValidPhotoSrc(t.url)
+    ) : [];
+    const mergedTimeline = [...sheetsTl, ...localOnlyTl]
+      .sort((a, b) => b.date.localeCompare(a.date)); // terbaru dulu
+
+    return {
+      ...sp,                          // metadata dari Sheets
+      photo: bestPhoto,               // foto terbaik
+      drivePhotoUrl: bestDriveUrl,    // Drive URL dari Sheets
+      photoTimeline: mergedTimeline,  // timeline digabung
+      // Pertahankan history lokal kalau Sheets tidak punya
+      history: (sp.history && sp.history.length > 0) ? sp.history
+             : (lp ? (lp.history || []) : [])
+    };
+  }).concat(
+    // Tambahkan plant lokal yang BELUM ada di Sheets (baru dibuat, belum sync)
+    plants.filter(lp => !sheetsData.find(sp => sp.id === lp.id))
+  );
 }
 
 function loadLocalData() {
