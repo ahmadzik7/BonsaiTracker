@@ -59,8 +59,6 @@
     align-items: center;
     gap: 12px;
     font-size: 13px;
-    position: relative;
-    z-index: 20;
   }
   #installBanner.show { display: flex; }
   #installBanner button {
@@ -86,10 +84,10 @@
 
   /* ── HEADER ── */
   header {
-    position: relative;
+    position: sticky; top: 0;
     background: linear-gradient(135deg, var(--forest) 0%, var(--moss) 50%, var(--leaf) 100%);
     overflow: hidden;
-    z-index: 10;
+    isolation: auto;
   }
   .header-pattern {
     position: absolute;
@@ -156,7 +154,7 @@
     padding: 10px 24px;
     display: flex; align-items: center; gap: 12px;
     font-size: 12px; color: var(--bark);
-    position: relative; z-index: 9; flex-wrap: wrap;
+    position: relative; flex-wrap: wrap;
   }
   .config-banner input {
     flex: 1; min-width: 180px; max-width: 380px;
@@ -173,7 +171,8 @@
   .nav-tabs {
     display: flex; gap: 2px; padding: 14px 24px 0;
     border-bottom: 1px solid rgba(74,140,92,0.15);
-    position: relative; z-index: 8; background: var(--cream);
+    position: sticky; top: 0;
+    background: var(--cream);
     overflow-x: auto; -webkit-overflow-scrolling: touch;
   }
   .nav-tabs::-webkit-scrollbar { display: none; }
@@ -188,7 +187,7 @@
   .tab.active { color: var(--forest); font-weight: 600; border-bottom-color: var(--leaf); background: rgba(74,140,92,0.08); }
 
   /* ── CONTENT ── */
-  .content { position: relative; z-index: 1; padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .content { padding: 24px; max-width: 1400px; margin: 0 auto; }
   .view { display: none; }
   .view.active { display: block; }
 
@@ -290,31 +289,49 @@
   /* ── MODAL ── */
   .modal-overlay {
     position: fixed; inset: 0;
-    background: rgba(10,25,16,0.6); z-index: 1000;
-    display: flex; align-items: center; justify-content: center;
-    padding: 16px; backdrop-filter: blur(4px);
-    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    background: rgba(10,25,16,0.65);
+    z-index: 99999;
+    display: flex; align-items: flex-end; justify-content: center;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none; transition: opacity 0.25s;
   }
   .modal-overlay.open { opacity: 1; pointer-events: all; }
   .modal {
-    background: white; border-radius: 24px; width: 100%;
-    max-width: 660px; max-height: 92vh; overflow-y: auto;
-    box-shadow: 0 32px 80px rgba(10,25,16,0.3);
-    transform: scale(0.95) translateY(10px);
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    border: 1px solid rgba(74,140,92,0.15);
+    background: white;
+    border-radius: 20px 20px 0 0;
+    width: 100%; max-width: 680px;
+    max-height: 88svh; max-height: 88vh;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    box-shadow: 0 -4px 32px rgba(10,25,16,0.2);
+    transform: translateY(20px);
+    transition: transform 0.28s cubic-bezier(0.34, 1.2, 0.64, 1);
+    border-top: 1px solid rgba(74,140,92,0.12);
+    padding-bottom: env(safe-area-inset-bottom, 16px);
   }
-  .modal-overlay.open .modal { transform: scale(1) translateY(0); }
-  .modal-header { padding: 22px 26px 0; display: flex; align-items: center; justify-content: space-between; }
-  .modal-title { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--forest); font-weight: 700; }
+  /* Pull bar */
+  .modal::before {
+    content: ''; display: block;
+    width: 36px; height: 4px; border-radius: 4px;
+    background: rgba(74,140,92,0.2);
+    margin: 10px auto 0;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  /* Desktop — centered dialog */
+  @media (min-width: 640px) {
+    .modal-overlay { align-items: center; padding: 20px; }
+    .modal { border-radius: 20px; max-height: 90vh; padding-bottom: 0; }
+    .modal::before { display: none; }
+  }
+  .modal-header { padding: 16px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--forest); font-weight: 700; }
   .modal-close {
-    width: 34px; height: 34px; border-radius: 50%; border: none;
-    background: var(--dew); cursor: pointer; font-size: 16px;
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: var(--dew); cursor: pointer; font-size: 15px;
     display: flex; align-items: center; justify-content: center;
-    color: var(--sage); transition: all 0.2s;
+    color: var(--sage); transition: all 0.2s; flex-shrink: 0;
   }
   .modal-close:hover { background: rgba(224,120,64,0.15); color: var(--accent); }
-  .modal-body { padding: 18px 26px 26px; }
+  .modal-body { padding: 14px 20px 24px; }
 
   /* ── FORM ── */
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -457,7 +474,7 @@
   }
   .photo-lightbox {
     position: fixed; inset: 0; background: rgba(0,0,0,0.92);
-    z-index: 2000; display: flex; align-items: center; justify-content: center;
+    z-index: 999998; display: flex; align-items: center; justify-content: center;
     flex-direction: column; gap: 12px; padding: 20px;
     opacity: 0; pointer-events: none; transition: opacity 0.2s;
   }
@@ -484,7 +501,7 @@
   .img-placeholder { font-size: 80px; text-align: center; padding: 40px 20px; }
   .detail-badges { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
   .detail-badge { background: rgba(26,58,42,0.85); color: white; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-  .detail-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
   .detail-stat { background: var(--dew); border-radius: 12px; padding: 12px; text-align: center; }
   .detail-stat .icon { font-size: 18px; }
   .detail-stat .val { font-size: 14px; font-weight: 700; color: var(--forest); margin-top: 4px; }
@@ -576,7 +593,7 @@
   .empty-state p { font-size: 13px; color: var(--sage); margin-bottom: 20px; }
 
   /* ── TOAST ── */
-  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 5000; display: flex; flex-direction: column; gap: 8px; }
+  .toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 999999; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; width: max-content; max-width: calc(100vw - 32px); }
   .toast {
     background: var(--forest); color: white; padding: 10px 16px;
     border-radius: 12px; font-size: 13px; font-weight: 500;
@@ -759,6 +776,8 @@
 <div class="nav-tabs">
   <button class="tab active" onclick="openTab('garden')" id="tab-garden">🌳 Kebun</button>
   <button class="tab" onclick="openTab('watering')" id="tab-watering">💧 Jadwal Siram</button>
+  <button class="tab" onclick="openTab('fertilize')" id="tab-fertilize">🌿 Pupuk <span id="fertilize-badge" style="display:none;background:var(--leaf);color:white;border-radius:20px;padding:1px 6px;font-size:9px;margin-left:2px;"></span></button>
+  <button class="tab" onclick="openTab('wire')" id="tab-wire">🔩 Kawat <span id="wire-badge" style="display:none;background:var(--accent);color:white;border-radius:20px;padding:1px 6px;font-size:9px;margin-left:2px;"></span></button>
   <button class="tab" onclick="openTab('scanner')" id="tab-scanner">📱 Scan QR</button>
   <button class="tab" onclick="openTab('stats')" id="tab-stats">📊 Statistik</button>
   <button class="tab" onclick="openTab('map')" id="tab-map">🗺️ Peta Kebun</button>
@@ -791,11 +810,62 @@
 
   <!-- WATERING -->
   <div class="view" id="view-watering">
-    <div style="margin-bottom:18px;">
-      <h2 style="font-family:'Playfair Display',serif;font-size:20px;color:var(--forest);">💧 Jadwal Penyiraman</h2>
-      <p style="font-size:12px;color:var(--sage);margin-top:3px;">Semua pohon diurutkan berdasarkan yang paling butuh air</p>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+      <div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:20px;color:var(--forest);">💧 Jadwal Penyiraman</h2>
+        <p style="font-size:12px;color:var(--sage);margin-top:3px;">Semua pohon diurutkan berdasarkan yang paling butuh air</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-primary" style="font-size:12px;padding:8px 14px;background:var(--accent);border:none;" onclick="waterAllConfirm('need')">
+          🚿 Siram Yang Butuh Air
+        </button>
+        <button class="btn-ghost" style="font-size:12px;padding:8px 14px;color:var(--forest);background:var(--dew);border-color:rgba(74,140,92,0.3);" onclick="waterAllConfirm('all')">
+          💧 Siram Semua
+        </button>
+      </div>
+    </div>
+    <!-- Progress bar area (hidden by default) -->
+    <div id="waterAllProgress" style="display:none;background:white;border-radius:16px;padding:16px 18px;margin-bottom:16px;border:1px solid rgba(74,140,92,0.2);box-shadow:0 2px 8px rgba(26,58,42,0.06);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:18px;">🚿</span>
+        <div style="flex:1;">
+          <div id="waterAllProgressText" style="font-size:13px;font-weight:600;color:var(--forest);">Menyiram...</div>
+          <div id="waterAllProgressSub" style="font-size:11px;color:var(--sage);margin-top:2px;"></div>
+        </div>
+        <div id="waterAllProgressCount" style="font-size:18px;font-weight:700;color:var(--leaf);"></div>
+      </div>
+      <div style="background:rgba(74,140,92,0.1);border-radius:20px;height:6px;overflow:hidden;">
+        <div id="waterAllProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--sage),var(--leaf));border-radius:20px;transition:width 0.3s ease;"></div>
+      </div>
     </div>
     <div id="wateringList" class="notif-list"></div>
+  </div>
+
+  <!-- FERTILIZE SCHEDULE -->
+  <div class="view" id="view-fertilize">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+      <div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:20px;color:var(--forest);">🌿 Jadwal Pemupukan</h2>
+        <p style="font-size:12px;color:var(--sage);margin-top:3px;">Atur jadwal pemupukan untuk setiap pohon</p>
+      </div>
+    </div>
+    <div id="fertilizeList" class="notif-list"></div>
+  </div>
+
+  <!-- WIRE SCHEDULE -->
+  <div class="view" id="view-wire">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+      <div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:20px;color:var(--forest);">🔩 Jadwal Pengkawatan</h2>
+        <p style="font-size:12px;color:var(--sage);margin-top:3px;">Catat pemasangan kawat &amp; jadwal pelepasan — notifikasi 3 hari sebelum waktunya</p>
+      </div>
+      <button class="btn-primary" style="font-size:12px;padding:8px 14px;" onclick="openWireLogModal()">&#43; Catat Pengkawatan</button>
+    </div>
+    <div id="wireAlertBanner" style="display:none;background:linear-gradient(135deg,rgba(224,120,64,0.1),rgba(200,168,75,0.08));border:1px solid rgba(224,120,64,0.35);border-radius:16px;padding:14px 18px;margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px;">&#9888;&#65039; Perlu Perhatian</div>
+      <div id="wireAlertList"></div>
+    </div>
+    <div id="wireList" class="notif-list"></div>
   </div>
 
   <!-- SCANNER QR -->
@@ -1078,13 +1148,16 @@ self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>
 
 // ========== INIT ==========
 window.addEventListener('DOMContentLoaded', () => {
+  attachModalListeners();
   loadLocalData();
   loadConfig();
+  loadWireLogs();
   renderAll();
   setInterval(checkSyncNeeded, 30000);
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('f-lastwater').value = today;
   document.getElementById('f-date').value = today;
+  setTimeout(scheduleWireNotifications, 1500);
 });
 
 // ========== CONFIG & SYNC ==========
@@ -1635,6 +1708,119 @@ function waterPlant(id) {
   closeModal('detailModal');
 }
 
+// ========== SIRAM MASSAL ==========
+function waterAllConfirm(mode) {
+  const targets = mode === 'need'
+    ? plants.filter(p => calcWaterStatus(p).needsWater)
+    : [...plants];
+
+  if (!targets.length) {
+    toast(mode === 'need' ? '✅ Tidak ada pohon yang perlu disiram!' : '⚠️ Belum ada pohon', 'warn');
+    return;
+  }
+
+  const label = mode === 'need'
+    ? `${targets.length} pohon yang butuh air`
+    : `semua ${targets.length} pohon`;
+
+  // Buat konfirmasi visual di dalam halaman (tidak pakai alert/confirm browser)
+  const existing = document.getElementById('waterAllConfirmBox');
+  if (existing) existing.remove();
+
+  const box = document.createElement('div');
+  box.id = 'waterAllConfirmBox';
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(10,25,16,0.6);z-index:99999;display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);';
+  box.innerHTML = `
+    <div style="background:white;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 22px 32px;box-shadow:0 -4px 32px rgba(10,25,16,0.2);">
+      <div style="width:36px;height:4px;background:rgba(74,140,92,0.2);border-radius:4px;margin:0 auto 20px;"></div>
+      <div style="font-size:32px;text-align:center;margin-bottom:12px;">🚿</div>
+      <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--forest);text-align:center;margin-bottom:8px;">
+        Siram ${mode === 'need' ? 'Yang Butuh Air' : 'Semua Pohon'}?
+      </div>
+      <div style="font-size:13px;color:var(--sage);text-align:center;margin-bottom:6px;">
+        Akan mencatat penyiraman untuk <strong style="color:var(--forest);">${label}</strong>
+      </div>
+      ${mode === 'all' ? `<div style="font-size:11px;color:var(--accent);text-align:center;margin-bottom:18px;">⚠️ Termasuk pohon yang belum waktunya disiram</div>` : `<div style="margin-bottom:18px;"></div>`}
+      <div style="display:flex;gap:10px;">
+        <button onclick="document.getElementById('waterAllConfirmBox').remove()"
+          style="flex:1;padding:12px;background:var(--dew);border:1px solid rgba(74,140,92,0.25);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--moss);cursor:pointer;">
+          Batal
+        </button>
+        <button onclick="document.getElementById('waterAllConfirmBox').remove(); waterAll('${mode}')"
+          style="flex:2;padding:12px;background:${mode === 'need' ? 'var(--accent)' : 'var(--leaf)'};border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:white;cursor:pointer;">
+          💧 Ya, Siram Sekarang
+        </button>
+      </div>
+    </div>`;
+  box.addEventListener('click', e => { if (e.target === box) box.remove(); });
+  document.body.appendChild(box);
+}
+
+async function waterAll(mode) {
+  const today = new Date().toISOString().split('T')[0];
+  const targets = mode === 'need'
+    ? plants.filter(p => calcWaterStatus(p).needsWater)
+    : [...plants];
+
+  if (!targets.length) return;
+
+  // Tampilkan progress
+  const prog = document.getElementById('waterAllProgress');
+  const progText = document.getElementById('waterAllProgressText');
+  const progSub = document.getElementById('waterAllProgressSub');
+  const progBar = document.getElementById('waterAllProgressBar');
+  const progCount = document.getElementById('waterAllProgressCount');
+
+  // Switch ke tab watering kalau belum
+  openTab('watering');
+
+  prog.style.display = 'block';
+  prog.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  for (let i = 0; i < targets.length; i++) {
+    const p = targets[i];
+    const pct = Math.round(((i + 1) / targets.length) * 100);
+
+    progText.textContent = `Menyiram ${p.name}...`;
+    progSub.textContent = `${i + 1} dari ${targets.length} pohon`;
+    progBar.style.width = pct + '%';
+    progCount.textContent = pct + '%';
+
+    // Update data
+    p.lastWater = today;
+    p.history = p.history || [];
+    p.history.unshift({ date: today, event: 'Penyiraman massal 🚿', type: 'water' });
+
+    // Simpan per-plant & update UI setiap 3 pohon
+    if ((i + 1) % 3 === 0 || i === targets.length - 1) {
+      saveLocalData();
+      renderAll();
+    }
+
+    // Delay kecil agar progress bar keliatan
+    await new Promise(r => setTimeout(r, 120));
+  }
+
+  // Selesai — simpan ke Sheet sekali saja (efisien)
+  scheduleSheetSave();
+
+  // Update progress ke selesai
+  progText.textContent = '✅ Selesai!';
+  progSub.textContent = `${targets.length} pohon berhasil disiram`;
+  progBar.style.width = '100%';
+  progBar.style.background = 'linear-gradient(90deg, var(--leaf), var(--moss))';
+  progCount.textContent = '✓';
+
+  toast(`🚿 ${targets.length} pohon berhasil disiram!`, 'info', 4000);
+
+  // Sembunyikan progress setelah 3 detik
+  setTimeout(() => {
+    prog.style.display = 'none';
+    progBar.style.width = '0%';
+    progBar.style.background = 'linear-gradient(90deg,var(--sage),var(--leaf))';
+  }, 3000);
+}
+
 // ========== HISTORY MANAGEMENT ==========
 let selectedHistoryType = 'note';
 
@@ -1850,7 +2036,7 @@ function calcGrowth(dateStr) {
 }
 
 // ========== RENDER ==========
-function renderAll() { renderGarden(); renderStats(); renderWatering(); updateHeaderStats(); }
+function renderAll() { renderGarden(); renderStats(); renderWatering(); updateHeaderStats(); updateFertilizeBadge(); updateWireBadge(); }
 
 function updateHeaderStats() {
   document.getElementById('stat-total').textContent = plants.length;
@@ -2078,6 +2264,7 @@ function openDetail(id) {
     <div class="detail-stats">
       <div class="detail-stat"><div class="icon">⏳</div><div class="val">${age.text}</div><div class="lbl">Usia</div></div>
       <div class="detail-stat" style="${ws.needsWater?'background:rgba(224,120,64,0.08);':''}"><div class="icon">💧</div><div class="val" style="${ws.needsWater?'color:var(--accent);font-size:12px;':''}"> ${ws.needsWater?'⚠️ Siram!':ws.nextIn}</div><div class="lbl">Penyiraman</div></div>
+      <div class="detail-stat" style="${p.fertilize&&p.fertilize.freq&&calcFertilizeStatus(p)&&calcFertilizeStatus(p).needsFert?'background:rgba(74,140,92,0.08);':''}"><div class="icon">🌿</div><div class="val" style="font-size:11px;">${p.fertilize&&p.fertilize.freq?(calcFertilizeStatus(p).needsFert?'Saatnya!':calcFertilizeStatus(p).nextIn):'—'}</div><div class="lbl">Pupuk</div></div>
       <div class="detail-stat"><div class="icon">📍</div><div class="val" style="font-size:11px;">${p.location||'—'}</div><div class="lbl">Lokasi</div></div>
     </div>
     ${p.notes?`<div style="background:var(--dew);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--forest);line-height:1.7;">${p.notes}</div>`:''}
@@ -2120,6 +2307,7 @@ function openDetail(id) {
 
     <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;">
       <button class="action-btn water-btn" style="flex:1;padding:11px;" onclick="waterPlant('${p.id}')">💧 Catat Penyiraman</button>
+      <button class="action-btn" style="flex:1;padding:11px;background:rgba(74,140,92,0.1);border-color:rgba(74,140,92,0.3);color:var(--moss);" onclick="closeModal('detailModal');openFertilizeModal('${p.id}')">🌿 Jadwal Pupuk</button>
       <button class="download-btn" style="margin-top:0;" onclick="downloadQRLabel('${p.id}')">🏷️ QR Label</button>
       <button onclick="deletePlant('${p.id}')" style="padding:11px 14px;background:none;border:1px solid rgba(220,60,60,0.25);border-radius:10px;color:#c0392b;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:500;transition:all 0.2s;" onmouseover="this.style.background='rgba(220,60,60,0.08)'" onmouseout="this.style.background='none'">🗑️ Hapus</button>
     </div>`;
@@ -2497,6 +2685,359 @@ function openTab(name) {
   document.getElementById('tab-'+name).classList.add('active');
   document.getElementById('view-'+name).classList.add('active');
   if (name !== 'scanner') stopScanner();
+  if (name === 'fertilize') renderFertilizeList();
+  if (name === 'wire') renderWireList();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FERTILIZE SCHEDULE
+// ═══════════════════════════════════════════════════════════
+let editingFertilizePlantId = null;
+
+function calcFertilizeStatus(p) {
+  if (!p.fertilize || !p.fertilize.freq) return null;
+  const f = p.fertilize;
+  if (!f.last) return { daysAgo: null, nextIn: 'Belum pernah', needsFert: true, daysLeft: 0 };
+  const daysAgoN = Math.floor((new Date() - new Date(f.last)) / 86400000);
+  const freq = f.freq || 14;
+  const left = freq - daysAgoN;
+  return { daysAgo: daysAgoN, nextIn: left <= 0 ? 'Sekarang!' : left + ' hari lagi', needsFert: left <= 0, daysLeft: left };
+}
+
+function renderFertilizeList() {
+  const c = document.getElementById('fertilizeList');
+  if (!c) return;
+  if (!plants.length) { c.innerHTML = '<div class="empty-state"><div class="icon">🌿</div><h3>Belum ada pohon</h3><p>Tambahkan pohon untuk mengatur jadwal pupuk</p></div>'; return; }
+  const sorted = [...plants].sort((a, b) => {
+    const fa = calcFertilizeStatus(a), fb = calcFertilizeStatus(b);
+    const da = fa ? (fa.daysLeft || 0) : 9999;
+    const db = fb ? (fb.daysLeft || 0) : 9999;
+    return da - db;
+  });
+  c.innerHTML = sorted.map(p => {
+    const fs = calcFertilizeStatus(p);
+    const f = p.fertilize || {};
+    const hasSched = !!f.freq;
+    const urgent = fs && fs.needsFert;
+    return '<div class="notif-item" style="' + (urgent ? 'border-color:rgba(74,140,92,0.4);background:rgba(74,140,92,0.03);' : '') + '">'
+      + '<div class="notif-icon">' + (urgent ? '🌿' : hasSched ? '✅' : '⚙️') + '</div>'
+      + '<div style="flex:1;">'
+      + '<div class="notif-title">' + p.name + ' <span style="font-size:10px;color:var(--sage);font-weight:400;">' + p.id + '</span></div>'
+      + '<div class="notif-desc">' + (p.species || '—') + (hasSched ? ' · ' + (f.type || 'Pupuk') + ' · setiap ' + f.freq + ' hari' : ' · Belum ada jadwal') + '</div>'
+      + '<div class="notif-time" style="' + (urgent ? 'color:var(--leaf);font-weight:600;' : '') + '">'
+      + (hasSched ? (fs.needsFert ? '🌿 Saatnya dipupuk! — Terakhir ' + (fs.daysAgo !== null ? fs.daysAgo + ' hari lalu' : 'belum pernah') : '✅ Terakhir ' + fs.daysAgo + ' hari lalu — ' + fs.nextIn) : '— Atur jadwal pemupukan')
+      + '</div>'
+      + (f.notes ? '<div style="font-size:11px;color:var(--sage);margin-top:3px;font-style:italic;">' + f.notes + '</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">'
+      + (hasSched ? '<button class="action-btn" style="font-size:11px;white-space:nowrap;background:rgba(74,140,92,0.1);border-color:rgba(74,140,92,0.3);" onclick="recordFertilize(\'' + p.id + '\')">🌿 Catat Pupuk</button>' : '')
+      + '<button class="action-btn" style="font-size:11px;" onclick="openFertilizeModal(\'' + p.id + '\')">' + (hasSched ? '⚙️ Ubah' : '+ Jadwal') + '</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+  updateFertilizeBadge();
+}
+
+function openFertilizeModal(plantId) {
+  editingFertilizePlantId = plantId;
+  const p = plants.find(x => x.id === plantId);
+  if (!p) return;
+  document.getElementById('fertilizeModalTitle').textContent = '🌿 Jadwal Pupuk — ' + p.name;
+  const f = p.fertilize || {};
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('fert-type').value = f.type || '';
+  document.getElementById('fert-last').value = f.last || today;
+  document.getElementById('fert-freq').value = f.freq || 14;
+  document.getElementById('fert-notes').value = f.notes || '';
+  document.getElementById('fertilizeModal').classList.add('open');
+}
+
+function saveFertilizeSchedule() {
+  const plantId = editingFertilizePlantId;
+  if (!plantId) return;
+  const p = plants.find(x => x.id === plantId);
+  if (!p) return;
+  const freq = parseInt(document.getElementById('fert-freq').value) || 14;
+  const last = document.getElementById('fert-last').value;
+  const type = document.getElementById('fert-type').value || 'Pupuk';
+  const notes = document.getElementById('fert-notes').value.trim();
+  p.fertilize = { freq, last, type, notes };
+  p.history = p.history || [];
+  p.history.unshift({ date: new Date().toISOString().split('T')[0], event: '⚙️ Jadwal pemupukan diatur: ' + type + ' setiap ' + freq + ' hari', type: 'fertilize' });
+  saveLocalData(); pushToSheet(p);
+  closeModal('fertilizeModal');
+  renderFertilizeList();
+  toast('✅ Jadwal pupuk ' + p.name + ' disimpan!');
+}
+
+function recordFertilize(plantId) {
+  const p = plants.find(x => x.id === plantId);
+  if (!p) return;
+  const today = new Date().toISOString().split('T')[0];
+  p.fertilize = p.fertilize || {};
+  p.fertilize.last = today;
+  p.history = p.history || [];
+  const type = p.fertilize.type || 'Pupuk';
+  p.history.unshift({ date: today, event: '🌿 ' + type + ' diaplikasikan', type: 'fertilize' });
+  saveLocalData(); pushToSheet(p);
+  renderFertilizeList();
+  toast('🌿 ' + p.name + ' berhasil dipupuk!');
+}
+
+function updateFertilizeBadge() {
+  const badge = document.getElementById('fertilize-badge');
+  if (!badge) return;
+  const due = plants.filter(p => { const fs = calcFertilizeStatus(p); return fs && fs.needsFert; }).length;
+  if (due > 0) { badge.textContent = due; badge.style.display = 'inline'; }
+  else badge.style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  WIRE SCHEDULE
+// ═══════════════════════════════════════════════════════════
+let wireLogs = [];
+let editingWireLogId = null;
+
+function loadWireLogs() {
+  try { wireLogs = JSON.parse(localStorage.getItem('bonsai_wire_logs') || '[]'); } catch(e) { wireLogs = []; }
+}
+
+function saveWireLogs() {
+  localStorage.setItem('bonsai_wire_logs', JSON.stringify(wireLogs));
+}
+
+function calcWireStatus(log) {
+  const today = new Date();
+  const removeDate = new Date(log.removeDate);
+  const daysLeft = Math.ceil((removeDate - today) / 86400000);
+  return {
+    daysLeft,
+    overdue: daysLeft < 0,
+    urgent: daysLeft >= 0 && daysLeft <= 3,
+    ok: daysLeft > 3,
+    label: daysLeft < 0 ? 'Terlambat ' + Math.abs(daysLeft) + ' hari!' : daysLeft === 0 ? 'Hari ini!' : daysLeft + ' hari lagi'
+  };
+}
+
+function openWireLogModal(logId) {
+  editingWireLogId = logId || null;
+  const today = new Date().toISOString().split('T')[0];
+  // Populate plant select
+  const sel = document.getElementById('wire-plant-select');
+  sel.innerHTML = '<option value="">&#8212; Pilih Pohon &#8212;</option>';
+  plants.forEach(p => { sel.innerHTML += '<option value="' + p.id + '">' + p.name + ' (' + p.id + ')</option>'; });
+  if (logId) {
+    const log = wireLogs.find(l => l.id === logId);
+    if (log) {
+      document.getElementById('wireModalTitle').textContent = '✏️ Edit Catatan Kawat';
+      sel.value = log.plantId;
+      document.getElementById('wire-date-start').value = log.startDate;
+      document.getElementById('wire-date-remove').value = log.removeDate;
+      document.getElementById('wire-branch').value = log.branch || '';
+      document.getElementById('wire-type').value = log.wireType || '';
+      document.getElementById('wire-notes').value = log.notes || '';
+    }
+  } else {
+    document.getElementById('wireModalTitle').textContent = '🔩 Catat Pengkawatan';
+    sel.value = '';
+    document.getElementById('wire-date-start').value = today;
+    document.getElementById('wire-date-remove').value = '';
+    document.getElementById('wire-branch').value = '';
+    document.getElementById('wire-type').value = '';
+    document.getElementById('wire-notes').value = '';
+  }
+  document.getElementById('wireModal').classList.add('open');
+}
+
+function saveWireLog() {
+  const plantId = document.getElementById('wire-plant-select').value;
+  const startDate = document.getElementById('wire-date-start').value;
+  const removeDate = document.getElementById('wire-date-remove').value;
+  if (!plantId) { toast('⚠️ Pilih pohon dulu!', 'warn'); return; }
+  if (!startDate || !removeDate) { toast('⚠️ Lengkapi tanggal!', 'warn'); return; }
+  if (new Date(removeDate) <= new Date(startDate)) { toast('⚠️ Tanggal lepas harus setelah tanggal pasang!', 'warn'); return; }
+  const log = {
+    id: editingWireLogId || ('wire-' + Date.now()),
+    plantId,
+    startDate,
+    removeDate,
+    branch: document.getElementById('wire-branch').value.trim(),
+    wireType: document.getElementById('wire-type').value,
+    notes: document.getElementById('wire-notes').value.trim(),
+    status: 'active'
+  };
+  if (editingWireLogId) {
+    const idx = wireLogs.findIndex(l => l.id === editingWireLogId);
+    if (idx !== -1) wireLogs[idx] = log;
+  } else {
+    wireLogs.unshift(log);
+    // Log ke history pohon
+    const p = plants.find(x => x.id === plantId);
+    if (p) {
+      p.history = p.history || [];
+      p.history.unshift({ date: startDate, event: '🔩 Pengkawatan: ' + (log.branch || 'cabang') + (log.wireType ? ' — ' + log.wireType : '') + ' · Jadwal lepas: ' + fmtDate(removeDate), type: 'wire' });
+      saveLocalData(); pushToSheet(p);
+    }
+  }
+  saveWireLogs();
+  closeModal('wireModal');
+  renderWireList();
+  toast('✅ Catatan kawat disimpan!');
+  scheduleWireNotifications();
+}
+
+function removeWireLog(logId) {
+  if (!confirm('Hapus catatan kawat ini?')) return;
+  wireLogs = wireLogs.filter(l => l.id !== logId);
+  saveWireLogs();
+  renderWireList();
+  toast('🗑️ Catatan kawat dihapus');
+}
+
+function markWireRemoved(logId) {
+  const log = wireLogs.find(l => l.id === logId);
+  if (!log) return;
+  log.status = 'removed';
+  log.removedActualDate = new Date().toISOString().split('T')[0];
+  // Log ke history pohon
+  const p = plants.find(x => x.id === log.plantId);
+  if (p) {
+    p.history = p.history || [];
+    p.history.unshift({ date: log.removedActualDate, event: '✅ Kawat dilepas: ' + (log.branch || 'cabang'), type: 'wire' });
+    saveLocalData(); pushToSheet(p);
+  }
+  saveWireLogs();
+  renderWireList();
+  toast('✅ Kawat berhasil dilepas!');
+}
+
+function renderWireList() {
+  const c = document.getElementById('wireList');
+  const alertBanner = document.getElementById('wireAlertBanner');
+  const alertList = document.getElementById('wireAlertList');
+  if (!c) return;
+  loadWireLogs();
+
+  const activeLogs = wireLogs.filter(l => l.status !== 'removed');
+  const removedLogs = wireLogs.filter(l => l.status === 'removed');
+
+  // Alert banner: logs due in 3 days or overdue
+  const alertLogs = activeLogs.filter(l => {
+    const ws = calcWireStatus(l);
+    return ws.urgent || ws.overdue;
+  });
+  if (alertLogs.length) {
+    alertBanner.style.display = 'block';
+    alertList.innerHTML = alertLogs.map(l => {
+      const p = plants.find(x => x.id === l.plantId);
+      const ws = calcWireStatus(l);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(224,120,64,0.1);">'
+        + '<span style="font-size:18px;">' + (ws.overdue ? '🚨' : '⏰') + '</span>'
+        + '<div style="flex:1;">'
+        + '<span style="font-weight:600;font-size:13px;color:var(--forest);">' + (p ? p.name : l.plantId) + '</span>'
+        + ' <span style="font-size:11px;color:var(--sage);">' + (l.branch || '') + '</span>'
+        + '<div style="font-size:11px;color:' + (ws.overdue ? '#c0392b' : 'var(--accent)') + ';font-weight:600;">'
+        + (ws.overdue ? '🚨 Terlambat ' + Math.abs(ws.daysLeft) + ' hari! Segera lepas kawat' : '⏰ ' + ws.daysLeft + ' hari lagi — ' + fmtDate(l.removeDate))
+        + '</div></div>'
+        + '<button onclick="markWireRemoved(\'' + l.id + '\')" style="background:var(--accent);color:white;border:none;border-radius:9px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">✅ Lepas</button>'
+        + '</div>';
+    }).join('');
+  } else {
+    alertBanner.style.display = 'none';
+  }
+
+  if (!wireLogs.length) {
+    c.innerHTML = '<div class="empty-state"><div class="icon">🔩</div><h3>Belum ada catatan kawat</h3><p>Catat pengkawatan untuk mendapatkan notifikasi jadwal pelepasan</p></div>';
+    updateWireBadge(); return;
+  }
+
+  let html = '';
+  if (activeLogs.length) {
+    html += '<div style="font-size:11px;font-weight:700;color:var(--moss);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;margin-top:4px;">🔩 Aktif (' + activeLogs.length + ')</div>';
+    html += activeLogs.map(l => {
+      const p = plants.find(x => x.id === l.plantId);
+      const ws = calcWireStatus(l);
+      const urgentStyle = ws.overdue ? 'border-color:rgba(192,57,43,0.4);background:rgba(192,57,43,0.03);' : ws.urgent ? 'border-color:rgba(224,120,64,0.4);background:rgba(224,120,64,0.02);' : '';
+      return '<div class="notif-item" style="' + urgentStyle + '">'
+        + '<div class="notif-icon">' + (ws.overdue ? '🚨' : ws.urgent ? '⏰' : '🔩') + '</div>'
+        + '<div style="flex:1;">'
+        + '<div class="notif-title">' + (p ? p.name : l.plantId) + ' <span style="font-size:10px;color:var(--sage);font-weight:400;">' + l.plantId + '</span></div>'
+        + '<div class="notif-desc">' + (l.branch || 'Pengkawatan') + (l.wireType ? ' · ' + l.wireType : '') + '</div>'
+        + '<div class="notif-time" style="' + (ws.overdue ? 'color:#c0392b;font-weight:700;' : ws.urgent ? 'color:var(--accent);font-weight:600;' : '') + '">'
+        + '📅 Dipasang: ' + fmtDate(l.startDate) + ' · Lepas: ' + fmtDate(l.removeDate)
+        + '</div>'
+        + '<div style="font-size:11px;margin-top:3px;font-weight:' + (ws.overdue || ws.urgent ? '600' : '400') + ';color:' + (ws.overdue ? '#c0392b' : ws.urgent ? 'var(--accent)' : 'var(--sage)') + ';">'
+        + ws.label
+        + '</div>'
+        + (l.notes ? '<div style="font-size:11px;color:var(--sage);margin-top:3px;font-style:italic;">' + l.notes + '</div>' : '')
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">'
+        + '<button class="action-btn" style="font-size:11px;white-space:nowrap;background:rgba(74,140,92,0.1);border-color:rgba(74,140,92,0.3);" onclick="markWireRemoved(\'' + l.id + '\')">✅ Lepas</button>'
+        + '<button class="action-btn" style="font-size:11px;" onclick="openWireLogModal(\'' + l.id + '\')">✏️ Edit</button>'
+        + '<button class="action-btn" style="font-size:11px;color:#c0392b;border-color:rgba(192,57,43,0.2);" onclick="removeWireLog(\'' + l.id + '\')">🗑️</button>'
+        + '</div></div>';
+    }).join('');
+  }
+
+  if (removedLogs.length) {
+    html += '<div style="font-size:11px;font-weight:700;color:var(--sage);text-transform:uppercase;letter-spacing:1px;margin:16px 0 10px;">✅ Selesai (' + removedLogs.length + ')</div>';
+    html += removedLogs.map(l => {
+      const p = plants.find(x => x.id === l.plantId);
+      return '<div class="notif-item" style="opacity:0.6;">'
+        + '<div class="notif-icon">✅</div>'
+        + '<div style="flex:1;">'
+        + '<div class="notif-title">' + (p ? p.name : l.plantId) + '</div>'
+        + '<div class="notif-desc">' + (l.branch || 'Pengkawatan') + (l.wireType ? ' · ' + l.wireType : '') + '</div>'
+        + '<div class="notif-time">Pasang: ' + fmtDate(l.startDate) + ' · Lepas: ' + fmtDate(l.removedActualDate || l.removeDate) + '</div>'
+        + '</div>'
+        + '<button class="action-btn" style="font-size:11px;color:#c0392b;border-color:rgba(192,57,43,0.2);" onclick="removeWireLog(\'' + l.id + '\')">🗑️</button>'
+        + '</div>';
+    }).join('');
+  }
+  c.innerHTML = html;
+  updateWireBadge();
+}
+
+function updateWireBadge() {
+  const badge = document.getElementById('wire-badge');
+  if (!badge) return;
+  loadWireLogs();
+  const n = wireLogs.filter(l => {
+    if (l.status === 'removed') return false;
+    const ws = calcWireStatus(l);
+    return ws.urgent || ws.overdue;
+  }).length;
+  if (n > 0) { badge.textContent = n; badge.style.display = 'inline'; }
+  else badge.style.display = 'none';
+}
+
+function scheduleWireNotifications() {
+  // Cek setiap saat load — tampilkan toast untuk kawat yang urgent
+  loadWireLogs();
+  const urgent = wireLogs.filter(l => {
+    if (l.status === 'removed') return false;
+    const ws = calcWireStatus(l);
+    return ws.urgent || ws.overdue;
+  });
+  if (urgent.length) {
+    const lastNotifKey = 'bonsai_wire_notif_' + new Date().toISOString().split('T')[0];
+    if (!sessionStorage.getItem(lastNotifKey)) {
+      sessionStorage.setItem(lastNotifKey, '1');
+      setTimeout(() => {
+        urgent.forEach(l => {
+          const p = plants.find(x => x.id === l.plantId);
+          const ws = calcWireStatus(l);
+          const name = p ? p.name : l.plantId;
+          const msg = ws.overdue
+            ? '🚨 ' + name + ': kawat terlambat dilepas ' + Math.abs(ws.daysLeft) + ' hari!'
+            : '⏰ ' + name + ': kawat perlu dilepas dalam ' + ws.daysLeft + ' hari';
+          toast(msg, ws.overdue ? 'warn' : 'info', 6000);
+        });
+      }, 1200);
+    }
+  }
+  updateWireBadge();
+  updateFertilizeBadge();
 }
 
 function setView(v) {
@@ -2508,9 +3049,15 @@ function setView(v) {
 
 // ========== MODAL ==========
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
-});
+// Attach click-outside-to-close setelah semua modal ada di DOM
+function attachModalListeners() {
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    // Hindari duplikasi
+    if (overlay._listenerAttached) return;
+    overlay._listenerAttached = true;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+  });
+}
 
 // ========== HELPERS ==========
 function sEmoji(species) {
@@ -2533,14 +3080,15 @@ function fmtDateShort(d) {
   return new Date(d).toLocaleDateString('id-ID', {day:'numeric', month:'short'});
 }
 
-function toast(msg, type='info') {
+function toast(msg, type='info', duration=3200) {
   const c = document.getElementById('toastContainer');
   const t = document.createElement('div');
   t.className = 'toast';
   if (type === 'warn') t.style.background = '#b45309';
+  if (type === 'error') t.style.background = '#c0392b';
   t.textContent = msg;
   c.appendChild(t);
-  setTimeout(() => t.remove(), 3200);
+  setTimeout(() => t.remove(), duration);
 }
 
 if (!document.getElementById('spin-style')) {
@@ -2914,7 +3462,7 @@ function handleEmptySlotClick(areaId, slotKey) {
 
   const picker = document.createElement('div');
   picker.id = 'slotPicker';
-  picker.style.cssText = 'position:fixed;inset:0;background:rgba(10,25,16,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;';
+  picker.style.cssText = 'position:fixed;inset:0;background:rgba(10,25,16,0.5);z-index:999998;display:flex;align-items:center;justify-content:center;padding:16px;';
   let pickerItems = '';
   available.forEach(function(ap) {
     const photoSrc = getPhotoSrc(ap);
@@ -2970,5 +3518,93 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<!-- WIRE LOG MODAL -->
+  <div class="modal-overlay" id="wireModal">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title" id="wireModalTitle">&#128297; Catat Pengkawatan</div>
+        <button class="modal-close" onclick="closeModal('wireModal')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Pohon *</label>
+            <select id="wire-plant-select"><option value="">&#8212; Pilih Pohon &#8212;</option></select>
+          </div>
+          <div class="form-group">
+            <label>Tanggal Pengkawatan *</label>
+            <input type="date" id="wire-date-start">
+          </div>
+          <div class="form-group">
+            <label>Jadwal Lepas Kawat *</label>
+            <input type="date" id="wire-date-remove">
+          </div>
+          <div class="form-group full">
+            <label>Bagian yang Dikawat</label>
+            <input type="text" id="wire-branch" placeholder="e.g. Cabang utama kiri, ranting apical...">
+          </div>
+          <div class="form-group full">
+            <label>Jenis Kawat</label>
+            <select id="wire-type">
+              <option value="">&#8212; Pilih &#8212;</option>
+              <option>Aluminium 1mm</option><option>Aluminium 1.5mm</option>
+              <option>Aluminium 2mm</option><option>Aluminium 2.5mm</option>
+              <option>Tembaga 1mm</option><option>Tembaga 1.5mm</option>
+              <option>Tembaga 2mm</option><option>Lainnya</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Catatan</label>
+            <textarea id="wire-notes" placeholder="Tujuan kawat, kondisi cabang, observasi..."></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
+          <button class="btn-ghost" style="color:var(--forest);border-color:rgba(74,140,92,0.3);background:var(--dew);" onclick="closeModal('wireModal')">Batal</button>
+          <button class="btn-primary" onclick="saveWireLog()">&#128190; Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- FERTILIZE MODAL -->
+  <div class="modal-overlay" id="fertilizeModal">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <div class="modal-title" id="fertilizeModalTitle">&#127807; Atur Jadwal Pupuk</div>
+        <button class="modal-close" onclick="closeModal('fertilizeModal')">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Jenis Pupuk</label>
+            <select id="fert-type">
+              <option value="">&#8212; Pilih &#8212;</option>
+              <option>NPK Mutiara</option><option>Slow Release Osmocote</option>
+              <option>Pupuk Organik Cair</option><option>Gandasil D</option>
+              <option>Gandasil B</option><option>Hyponex Hijau</option>
+              <option>Dekastar</option><option>Lainnya</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Terakhir Dipupuk</label>
+            <input type="date" id="fert-last">
+          </div>
+          <div class="form-group">
+            <label>Frekuensi (hari)</label>
+            <input type="number" id="fert-freq" min="1" max="90" value="14" style="text-align:center;">
+          </div>
+          <div class="form-group full">
+            <label>Catatan</label>
+            <textarea id="fert-notes" placeholder="Dosis, waktu pemupukan, observasi..."></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end;">
+          <button class="btn-ghost" style="color:var(--forest);border-color:rgba(74,140,92,0.3);background:var(--dew);" onclick="closeModal('fertilizeModal')">Batal</button>
+          <button class="btn-primary" onclick="saveFertilizeSchedule()">&#128190; Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
