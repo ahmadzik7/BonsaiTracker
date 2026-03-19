@@ -1107,7 +1107,7 @@ let currentPhoto = null;
 let currentPhotoFile = null;
 let currentPhotoHQ = null; // HQ version for Drive upload
 let currentView = 'grid';
-let sheetUrl = 'https://script.google.com/macros/s/AKfycbxGYlIg2_pf5jsk-dPM62b8F747n3jt8zcScHyICe_H63OKz0PcvdnhGK1-LWJQCsvc0w/exec';
+let sheetUrl = 'https://script.google.com/macros/s/AKfycbweZ-50LsMgZkNQkvQrIWw9iN-IyV2PpV1ZLPqg_FZXOdo74UVboBAiVac15QfuikHt/exec';
 let scannerActive = false;
 let deferredInstallPrompt = null;
 let pendingTimelinePlantId = null;
@@ -1161,7 +1161,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ========== CONFIG & SYNC ==========
-const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbweZ-50LsMgZkNQkvQrIWw9iN-IyV2PpV1ZLPqg_FZXOdo74UVboBAiVac15QfuikHt/exec';
+const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxGYlIg2_pf5jsk-dPM62b8F747n3jt8zcScHyICe_H63OKz0PcvdnhGK1-LWJQCsvc0w/exec';
 
 function loadConfig() {
   sheetUrl = localStorage.getItem('bonsai_sheet_url') || DEFAULT_SHEET_URL;
@@ -2348,7 +2348,9 @@ async function downloadQRLabel(id) {
   if (!p) return;
   if (typeof QRCode === 'undefined') { toast('⚠️ Library QR Code belum load, refresh halaman', 'warn'); return; }
 
-  const W = 360, H = 220;
+  toast('⏳ Membuat label...', 'info', 8000);
+
+  const W = 400, H = 240;
   const canvas = document.getElementById('labelCanvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
@@ -2359,92 +2361,166 @@ async function downloadQRLabel(id) {
 
   // Top bar
   ctx.fillStyle = '#1a3a2a';
-  ctx.fillRect(0, 0, W, 7);
-  ctx.fillRect(0, H-7, W, 7);
+  ctx.fillRect(0, 0, W, 8);
+  ctx.fillRect(0, H - 8, W, 8);
 
   // Border
   ctx.strokeStyle = '#1a3a2a';
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(1, 1, W-2, H-2);
+  ctx.strokeRect(1, 1, W - 2, H - 2);
+
+  // ── LEFT SIDE: text info ──
+  const leftW = W - 152; // 152 = QR area
 
   // Name
   ctx.fillStyle = '#1a3a2a';
   ctx.font = 'bold 22px Georgia, serif';
   ctx.textAlign = 'left';
   let nameText = p.name;
-  if (ctx.measureText(nameText).width > 170) {
-    while (ctx.measureText(nameText+'…').width > 170 && nameText.length > 3) nameText = nameText.slice(0,-1);
-    nameText += '…';
-  }
-  ctx.fillText(nameText, 14, 34);
+  while (ctx.measureText(nameText + '…').width > leftW - 18 && nameText.length > 3) nameText = nameText.slice(0, -1);
+  if (nameText !== p.name) nameText += '…';
+  ctx.fillText(nameText, 14, 38);
 
   // Species
   ctx.fillStyle = '#7fb08a';
   ctx.font = 'italic 12px Georgia, serif';
-  ctx.fillText(p.species || 'Unknown species', 14, 52);
+  let specText = p.species || 'Unknown species';
+  while (ctx.measureText(specText + '…').width > leftW - 18 && specText.length > 3) specText = specText.slice(0, -1);
+  if (specText !== (p.species || 'Unknown species')) specText += '…';
+  ctx.fillText(specText, 14, 56);
 
-  // ID
+  // ID badge
   ctx.fillStyle = '#4a8c5c';
   ctx.font = 'bold 11px monospace';
-  ctx.fillText(p.id, 14, 68);
-
-  // Info line
-  const age = calcAge(p.date);
-  ctx.fillStyle = '#1a3a2a';
-  ctx.font = '10px sans-serif';
-  ctx.fillText(`⏳ ${age.text}  💧 setiap ${p.waterFreq}h  📍 ${(p.location||'—').slice(0,18)}`, 14, 84);
+  ctx.fillText(p.id, 14, 74);
 
   // Divider
   ctx.strokeStyle = 'rgba(74,140,92,0.2)';
   ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(14, 92); ctx.lineTo(190, 92); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(14, 82); ctx.lineTo(leftW - 4, 82); ctx.stroke();
 
-  // QR Code (right side)
-  const qrTempCanvas = document.createElement('canvas');
-  // Generate QR ke div sementara lalu ambil image-nya
-  await new Promise((resolve) => {
-    const tempDiv = document.createElement('div');
-    tempDiv.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
-    document.body.appendChild(tempDiv);
-    try {
-      new QRCode(tempDiv, { text: p.id, width: 130, height: 130, colorDark: '#1a3a2a', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
-    } catch(e) { document.body.removeChild(tempDiv); resolve(); return; }
-    setTimeout(() => {
-      const qrImg = tempDiv.querySelector('img');
-      if (qrImg && qrImg.src) {
-        const i = new Image();
-        i.crossOrigin = 'anonymous';
-        i.onload = () => {
-          qrTempCanvas.width = 130; qrTempCanvas.height = 130;
-          qrTempCanvas.getContext('2d').drawImage(i, 0, 0, 130, 130);
-          resolve();
-        };
-        i.onerror = () => resolve();
-        i.src = qrImg.src;
-      } else resolve();
-      setTimeout(() => { try { document.body.removeChild(tempDiv); } catch(e){} }, 100);
-    }, 500);
-  });
-  if (qrTempCanvas.width > 0 && qrTempCanvas.height > 0) {
-    ctx.drawImage(qrTempCanvas, W - 144, 8, 130, 130);
+  // Info rows
+  const age = calcAge(p.date);
+  ctx.fillStyle = '#2d5a3d';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('⏳ Usia: ' + age.text, 14, 98);
+  ctx.fillText('💧 Siram: setiap ' + (p.waterFreq || '—') + ' hari', 14, 115);
+
+  const loc = (p.location || '—').slice(0, 22);
+  ctx.fillText('📍 ' + loc, 14, 132);
+
+  if (p.style) {
+    let styleText = p.style.split('(')[0].trim().slice(0, 26);
+    ctx.fillText('🎨 ' + styleText, 14, 149);
   }
 
-  // Bonsai emoji icon
-  ctx.font = '50px serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(sEmoji(p.species), 100, 155);
-
-  // Bottom text
+  // Footer text
   ctx.fillStyle = '#7fb08a';
   ctx.font = '9px sans-serif';
-  ctx.fillText('Bonsai Garden Tracker', 100, 178);
+  ctx.textAlign = 'center';
+  ctx.fillText('Bonsai Garden Tracker', leftW / 2, H - 14);
 
-  // Download
-  const link = document.createElement('a');
-  link.download = `qr-label-${p.id}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-  toast(`🏷️ QR Label ${p.name} didownload!`);
+  // ── RIGHT SIDE: QR Code ──
+  // qrcodejs bisa generate ke canvas langsung
+  const qrSize = 132;
+  const qrX = W - qrSize - 10;
+  const qrY = 10;
+
+  await new Promise((resolve) => {
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:' + qrSize + 'px;';
+    document.body.appendChild(tempDiv);
+
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      // Coba ambil canvas qrcodejs (lebih reliable dari img)
+      const qrCanvas = tempDiv.querySelector('canvas');
+      if (qrCanvas) {
+        try {
+          ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+          // Kotak border di sekeliling QR
+          ctx.strokeStyle = 'rgba(26,58,42,0.2)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2);
+        } catch(e) { console.warn('[QR] drawImage canvas error:', e); }
+        try { document.body.removeChild(tempDiv); } catch(e2) {}
+        resolve();
+        return;
+      }
+      // Fallback: coba img
+      const qrImg = tempDiv.querySelector('img');
+      if (qrImg) {
+        const tryDraw = () => {
+          try {
+            ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+            ctx.strokeStyle = 'rgba(26,58,42,0.2)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(qrX - 1, qrY - 1, qrSize + 2, qrSize + 2);
+          } catch(e) { console.warn('[QR] drawImage img error:', e); }
+          try { document.body.removeChild(tempDiv); } catch(e2) {}
+          resolve();
+        };
+        if (qrImg.complete && qrImg.naturalWidth > 0) {
+          tryDraw();
+        } else {
+          qrImg.onload = tryDraw;
+          qrImg.onerror = () => { try { document.body.removeChild(tempDiv); } catch(e2) {} resolve(); };
+        }
+        return;
+      }
+      try { document.body.removeChild(tempDiv); } catch(e2) {}
+      resolve();
+    };
+
+    try {
+      new QRCode(tempDiv, {
+        text: p.id,
+        width: qrSize,
+        height: qrSize,
+        colorDark: '#1a3a2a',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch(e) {
+      console.error('[QR] generate error:', e);
+      try { document.body.removeChild(tempDiv); } catch(e2) {}
+      resolve();
+      return;
+    }
+
+    // qrcodejs async — tunggu sampai elemen muncul
+    let attempts = 0;
+    const poll = setInterval(() => {
+      attempts++;
+      const el = tempDiv.querySelector('canvas') || tempDiv.querySelector('img');
+      const imgEl = tempDiv.querySelector('img');
+      const cvEl = tempDiv.querySelector('canvas');
+      if (cvEl || (imgEl && imgEl.complete && imgEl.naturalWidth > 0) || attempts > 30) {
+        clearInterval(poll);
+        finish();
+      }
+    }, 50);
+  });
+
+  // ── Label text di bawah QR ──
+  ctx.fillStyle = '#4a8c5c';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(p.id, qrX + qrSize / 2, qrY + qrSize + 14);
+
+  // ── Download ──
+  try {
+    const link = document.createElement('a');
+    link.download = 'qr-label-' + p.id + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    toast('🏷️ QR Label ' + p.name + ' didownload!', 'info', 3000);
+  } catch(e) {
+    console.error('[Label] toDataURL error:', e);
+    toast('❌ Gagal download label, coba lagi', 'warn');
+  }
 }
 
 // ========== SPECIES SEARCH + AI WATERING ==========
