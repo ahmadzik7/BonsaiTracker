@@ -501,7 +501,7 @@
   .img-placeholder { font-size: 80px; text-align: center; padding: 40px 20px; }
   .detail-badges { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
   .detail-badge { background: rgba(26,58,42,0.85); color: white; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
-  .detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .detail-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 14px; }
   .detail-stat { background: var(--dew); border-radius: 12px; padding: 12px; text-align: center; }
   .detail-stat .icon { font-size: 18px; }
   .detail-stat .val { font-size: 14px; font-weight: 700; color: var(--forest); margin-top: 4px; }
@@ -709,7 +709,7 @@
     .header-stats { display: none; }
     .form-grid { grid-template-columns: 1fr; }
     .form-group.full { grid-column: 1; }
-    .detail-stats { grid-template-columns: 1fr 1fr; }
+    .detail-stats { grid-template-columns: repeat(3, 1fr); }
     .history-type-grid { grid-template-columns: repeat(2, 1fr); }
     .content { padding: 16px; }
     .rack-slot { width:60px; height:60px; }
@@ -778,6 +778,7 @@
   <button class="tab" onclick="openTab('watering')" id="tab-watering">💧 Jadwal Siram</button>
   <button class="tab" onclick="openTab('fertilize')" id="tab-fertilize">🌿 Pupuk <span id="fertilize-badge" style="display:none;background:var(--leaf);color:white;border-radius:20px;padding:1px 6px;font-size:9px;margin-left:2px;"></span></button>
   <button class="tab" onclick="openTab('wire')" id="tab-wire">🔩 Kawat <span id="wire-badge" style="display:none;background:var(--accent);color:white;border-radius:20px;padding:1px 6px;font-size:9px;margin-left:2px;"></span></button>
+  <button class="tab" onclick="openTab('repot')" id="tab-repot">🪴 Repot <span id="repot-badge" style="display:none;background:#b45309;color:white;border-radius:20px;padding:1px 6px;font-size:9px;margin-left:2px;"></span></button>
   <button class="tab" onclick="openTab('scanner')" id="tab-scanner">📱 Scan QR</button>
   <button class="tab" onclick="openTab('stats')" id="tab-stats">📊 Statistik</button>
   <button class="tab" onclick="openTab('map')" id="tab-map">🗺️ Peta Kebun</button>
@@ -866,6 +867,22 @@
       <div id="wireAlertList"></div>
     </div>
     <div id="wireList" class="notif-list"></div>
+  </div>
+
+  <!-- REPOTTING SCHEDULE -->
+  <div class="view" id="view-repot">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+      <div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:20px;color:var(--forest);">🪴 Jadwal Repotting</h2>
+        <p style="font-size:12px;color:var(--sage);margin-top:3px;">Atur jadwal repotting tiap pohon — notifikasi 7 hari sebelum waktunya</p>
+      </div>
+    </div>
+    <!-- Alert banner -->
+    <div id="repotAlertBanner" style="display:none;background:linear-gradient(135deg,rgba(180,83,9,0.08),rgba(200,168,75,0.06));border:1px solid rgba(180,83,9,0.3);border-radius:16px;padding:14px 18px;margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:700;color:#b45309;margin-bottom:8px;">⚠️ Perlu Repotting Segera</div>
+      <div id="repotAlertList"></div>
+    </div>
+    <div id="repotList" class="notif-list"></div>
   </div>
 
   <!-- SCANNER QR -->
@@ -1158,6 +1175,8 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('f-lastwater').value = today;
   document.getElementById('f-date').value = today;
   setTimeout(scheduleWireNotifications, 1500);
+  // Re-attach modal listeners untuk modal yang ada di akhir body
+  setTimeout(attachModalListeners, 100);
 });
 
 // ========== CONFIG & SYNC ==========
@@ -2036,7 +2055,7 @@ function calcGrowth(dateStr) {
 }
 
 // ========== RENDER ==========
-function renderAll() { renderGarden(); renderStats(); renderWatering(); updateHeaderStats(); updateFertilizeBadge(); updateWireBadge(); }
+function renderAll() { renderGarden(); renderStats(); renderWatering(); updateHeaderStats(); updateFertilizeBadge(); updateWireBadge(); updateRepotBadge(); }
 
 function updateHeaderStats() {
   document.getElementById('stat-total').textContent = plants.length;
@@ -2265,6 +2284,7 @@ function openDetail(id) {
       <div class="detail-stat"><div class="icon">⏳</div><div class="val">${age.text}</div><div class="lbl">Usia</div></div>
       <div class="detail-stat" style="${ws.needsWater?'background:rgba(224,120,64,0.08);':''}"><div class="icon">💧</div><div class="val" style="${ws.needsWater?'color:var(--accent);font-size:12px;':''}"> ${ws.needsWater?'⚠️ Siram!':ws.nextIn}</div><div class="lbl">Penyiraman</div></div>
       <div class="detail-stat" style="${p.fertilize&&p.fertilize.freq&&calcFertilizeStatus(p)&&calcFertilizeStatus(p).needsFert?'background:rgba(74,140,92,0.08);':''}"><div class="icon">🌿</div><div class="val" style="font-size:11px;">${p.fertilize&&p.fertilize.freq?(calcFertilizeStatus(p).needsFert?'Saatnya!':calcFertilizeStatus(p).nextIn):'—'}</div><div class="lbl">Pupuk</div></div>
+      <div class="detail-stat" style="${(()=>{const rs=calcRepotStatus(p);return rs&&(rs.overdue||rs.urgent)?'background:rgba(180,83,9,0.07);':''})()}"><div class="icon">🪴</div><div class="val" style="font-size:11px;${(()=>{const rs=calcRepotStatus(p);return rs&&rs.overdue?'color:#c0392b;':rs&&rs.urgent?'color:#b45309;':''})()}">${(()=>{const rs=calcRepotStatus(p);return rs?rs.label:'—'})()}</div><div class="lbl">Repot</div></div>
       <div class="detail-stat"><div class="icon">📍</div><div class="val" style="font-size:11px;">${p.location||'—'}</div><div class="lbl">Lokasi</div></div>
     </div>
     ${p.notes?`<div style="background:var(--dew);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--forest);line-height:1.7;">${p.notes}</div>`:''}
@@ -2308,6 +2328,7 @@ function openDetail(id) {
     <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap;">
       <button class="action-btn water-btn" style="flex:1;padding:11px;" onclick="waterPlant('${p.id}')">💧 Catat Penyiraman</button>
       <button class="action-btn" style="flex:1;padding:11px;background:rgba(74,140,92,0.1);border-color:rgba(74,140,92,0.3);color:var(--moss);" onclick="closeModal('detailModal');openFertilizeModal('${p.id}')">🌿 Jadwal Pupuk</button>
+      <button class="action-btn" style="flex:1;padding:11px;background:rgba(180,83,9,0.08);border-color:rgba(180,83,9,0.25);color:#b45309;" onclick="closeModal('detailModal');openRepotModal('${p.id}')">🪴 Jadwal Repot</button>
       <button class="download-btn" style="margin-top:0;" onclick="downloadQRLabel('${p.id}')">🏷️ QR Label</button>
       <button onclick="deletePlant('${p.id}')" style="padding:11px 14px;background:none;border:1px solid rgba(220,60,60,0.25);border-radius:10px;color:#c0392b;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:500;transition:all 0.2s;" onmouseover="this.style.background='rgba(220,60,60,0.08)'" onmouseout="this.style.background='none'">🗑️ Hapus</button>
     </div>`;
@@ -2763,6 +2784,7 @@ function openTab(name) {
   if (name !== 'scanner') stopScanner();
   if (name === 'fertilize') renderFertilizeList();
   if (name === 'wire') renderWireList();
+  if (name === 'repot') renderRepotList();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3088,19 +3110,19 @@ function updateWireBadge() {
 }
 
 function scheduleWireNotifications() {
-  // Cek setiap saat load — tampilkan toast untuk kawat yang urgent
+  // Cek kawat urgent
   loadWireLogs();
-  const urgent = wireLogs.filter(l => {
+  const urgentWire = wireLogs.filter(l => {
     if (l.status === 'removed') return false;
     const ws = calcWireStatus(l);
     return ws.urgent || ws.overdue;
   });
-  if (urgent.length) {
+  if (urgentWire.length) {
     const lastNotifKey = 'bonsai_wire_notif_' + new Date().toISOString().split('T')[0];
     if (!sessionStorage.getItem(lastNotifKey)) {
       sessionStorage.setItem(lastNotifKey, '1');
       setTimeout(() => {
-        urgent.forEach(l => {
+        urgentWire.forEach(l => {
           const p = plants.find(x => x.id === l.plantId);
           const ws = calcWireStatus(l);
           const name = p ? p.name : l.plantId;
@@ -3112,8 +3134,222 @@ function scheduleWireNotifications() {
       }, 1200);
     }
   }
+
+  // Cek repot urgent
+  const urgentRepot = plants.filter(p => {
+    const rs = calcRepotStatus(p);
+    return rs && (rs.overdue || rs.urgent);
+  });
+  if (urgentRepot.length) {
+    const repotNotifKey = 'bonsai_repot_notif_' + new Date().toISOString().split('T')[0];
+    if (!sessionStorage.getItem(repotNotifKey)) {
+      sessionStorage.setItem(repotNotifKey, '1');
+      setTimeout(() => {
+        urgentRepot.forEach(p => {
+          const rs = calcRepotStatus(p);
+          const msg = rs.overdue
+            ? '🚨 ' + p.name + ': jadwal repot terlewat ' + Math.abs(rs.daysLeft) + ' hari!'
+            : '⏰ ' + p.name + ': repot ' + (rs.daysLeft === 0 ? 'hari ini!' : 'dalam ' + rs.daysLeft + ' hari');
+          toast(msg, rs.overdue ? 'warn' : 'info', 6000);
+        });
+      }, 2200);
+    }
+  }
+
   updateWireBadge();
   updateFertilizeBadge();
+  updateRepotBadge();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  REPOTTING SCHEDULE
+// ═══════════════════════════════════════════════════════════
+let editingRepotPlantId = null;
+
+function calcRepotStatus(p) {
+  if (!p.repot || !p.repot.nextDate) return null;
+  const today = new Date();
+  const nextDate = new Date(p.repot.nextDate);
+  const daysLeft = Math.ceil((nextDate - today) / 86400000);
+  return {
+    daysLeft,
+    overdue: daysLeft < 0,
+    urgent: daysLeft >= 0 && daysLeft <= 7,
+    ok: daysLeft > 7,
+    label: daysLeft < 0
+      ? 'Terlambat ' + Math.abs(daysLeft) + ' hari!'
+      : daysLeft === 0 ? 'Hari ini!'
+      : daysLeft + ' hari lagi'
+  };
+}
+
+function openRepotModal(plantId) {
+  editingRepotPlantId = plantId;
+  const p = plants.find(x => x.id === plantId);
+  if (!p) return;
+  document.getElementById('repotModalTitle').textContent = '🪴 Repotting — ' + p.name;
+  const r = p.repot || {};
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('repot-last').value = r.lastDate || today;
+  document.getElementById('repot-next').value = r.nextDate || '';
+  document.getElementById('repot-pot-size').value = r.potSize || '';
+  document.getElementById('repot-media').value = r.media || '';
+  document.getElementById('repot-notes').value = r.notes || '';
+  document.getElementById('repotModal').classList.add('open');
+  attachModalListeners();
+}
+
+function setRepotInterval(months) {
+  const lastVal = document.getElementById('repot-last').value;
+  if (!lastVal) { toast('⚠️ Isi tanggal terakhir repot dulu', 'warn'); return; }
+  const d = new Date(lastVal);
+  d.setMonth(d.getMonth() + months);
+  document.getElementById('repot-next').value = d.toISOString().split('T')[0];
+}
+
+function saveRepotSchedule() {
+  const plantId = editingRepotPlantId;
+  if (!plantId) return;
+  const p = plants.find(x => x.id === plantId);
+  if (!p) return;
+  const lastDate = document.getElementById('repot-last').value;
+  const nextDate = document.getElementById('repot-next').value;
+  if (!nextDate) { toast('⚠️ Tentukan jadwal repot berikutnya!', 'warn'); return; }
+  const potSize = document.getElementById('repot-pot-size').value;
+  const media   = document.getElementById('repot-media').value.trim();
+  const notes   = document.getElementById('repot-notes').value.trim();
+  p.repot = { lastDate, nextDate, potSize, media, notes };
+  p.history = p.history || [];
+  p.history.unshift({
+    date: new Date().toISOString().split('T')[0],
+    event: '🪴 Jadwal repot diatur — berikutnya: ' + fmtDate(nextDate) + (potSize ? ' · ' + potSize : ''),
+    type: 'repot'
+  });
+  saveLocalData(); pushToSheet(p);
+  closeModal('repotModal');
+  renderRepotList();
+  updateRepotBadge();
+  toast('✅ Jadwal repot ' + p.name + ' disimpan!');
+}
+
+function recordRepotDone(plantId) {
+  const p = plants.find(x => x.id === plantId);
+  if (!p) return;
+  // Buka modal dengan data prefill tanggal hari ini sebagai "terakhir repot"
+  // dan kosongkan nextDate agar user tentukan jadwal berikutnya
+  editingRepotPlantId = plantId;
+  document.getElementById('repotModalTitle').textContent = '🪴 Catat Repot Selesai — ' + p.name;
+  const r = p.repot || {};
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('repot-last').value = today;
+  document.getElementById('repot-next').value = '';
+  document.getElementById('repot-pot-size').value = r.potSize || '';
+  document.getElementById('repot-media').value = r.media || '';
+  document.getElementById('repot-notes').value = '';
+  document.getElementById('repotModal').classList.add('open');
+  attachModalListeners();
+}
+
+function renderRepotList() {
+  const c = document.getElementById('repotList');
+  const alertBanner = document.getElementById('repotAlertBanner');
+  const alertList = document.getElementById('repotAlertList');
+  if (!c) return;
+
+  if (!plants.length) {
+    c.innerHTML = '<div class="empty-state"><div class="icon">🪴</div><h3>Belum ada pohon</h3><p>Tambahkan pohon untuk mengatur jadwal repotting</p></div>';
+    if (alertBanner) alertBanner.style.display = 'none';
+    return;
+  }
+
+  // Sort: overdue → urgent → soon → no schedule
+  const sorted = [...plants].sort((a, b) => {
+    const ra = calcRepotStatus(a), rb = calcRepotStatus(b);
+    const da = ra ? ra.daysLeft : 99999;
+    const db = rb ? rb.daysLeft : 99999;
+    return da - db;
+  });
+
+  // Alert banner
+  const alertPlants = sorted.filter(p => {
+    const rs = calcRepotStatus(p);
+    return rs && (rs.overdue || rs.urgent);
+  });
+  if (alertPlants.length && alertBanner) {
+    alertBanner.style.display = 'block';
+    alertList.innerHTML = alertPlants.map(p => {
+      const rs = calcRepotStatus(p);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(180,83,9,0.1);">'
+        + '<span style="font-size:18px;">' + (rs.overdue ? '🚨' : '⏰') + '</span>'
+        + '<div style="flex:1;">'
+        + '<span style="font-weight:600;font-size:13px;color:var(--forest);">' + p.name + '</span>'
+        + ' <span style="font-size:11px;color:var(--sage);">' + (p.id) + '</span>'
+        + '<div style="font-size:11px;color:' + (rs.overdue ? '#c0392b' : '#b45309') + ';font-weight:600;">'
+        + (rs.overdue ? '🚨 ' + rs.label : '⏰ ' + rs.label + ' — ' + fmtDate(p.repot.nextDate))
+        + '</div></div>'
+        + '<button onclick="recordRepotDone(\'' + p.id + '\')" style="background:#b45309;color:white;border:none;border-radius:9px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">✅ Repot Selesai</button>'
+        + '</div>';
+    }).join('');
+  } else if (alertBanner) {
+    alertBanner.style.display = 'none';
+  }
+
+  c.innerHTML = sorted.map(p => {
+    const rs = calcRepotStatus(p);
+    const r = p.repot || {};
+    const hasSchedule = !!r.nextDate;
+    const urgent = rs && (rs.overdue || rs.urgent);
+    const urgentStyle = rs && rs.overdue
+      ? 'border-color:rgba(192,57,43,0.4);background:rgba(192,57,43,0.03);'
+      : rs && rs.urgent
+      ? 'border-color:rgba(180,83,9,0.35);background:rgba(180,83,9,0.02);'
+      : '';
+
+    const icon = rs && rs.overdue ? '🚨' : rs && rs.urgent ? '⏰' : hasSchedule ? '✅' : '⚙️';
+    const timeColor = rs && rs.overdue ? '#c0392b' : rs && rs.urgent ? '#b45309' : 'var(--sage)';
+
+    let statusLine = '— Belum ada jadwal';
+    if (hasSchedule && rs) {
+      statusLine = rs.overdue
+        ? '🚨 Terlambat ' + Math.abs(rs.daysLeft) + ' hari! Segera repot'
+        : rs.urgent
+        ? '⏰ ' + rs.daysLeft + ' hari lagi — ' + fmtDate(r.nextDate)
+        : '✅ ' + rs.daysLeft + ' hari lagi — ' + fmtDate(r.nextDate);
+    }
+
+    const meta = [
+      r.lastDate ? 'Terakhir: ' + fmtDate(r.lastDate) : null,
+      r.potSize || null,
+      r.media ? r.media.slice(0, 24) : null
+    ].filter(Boolean).join(' · ');
+
+    return '<div class="notif-item" style="' + urgentStyle + '">'
+      + '<div class="notif-icon">' + icon + '</div>'
+      + '<div style="flex:1;">'
+      + '<div class="notif-title">' + p.name + ' <span style="font-size:10px;color:var(--sage);font-weight:400;">' + p.id + '</span></div>'
+      + '<div class="notif-desc">' + (p.species || '—') + (meta ? ' · ' + meta : '') + '</div>'
+      + '<div class="notif-time" style="color:' + timeColor + ';' + (urgent ? 'font-weight:600;' : '') + '">' + statusLine + '</div>'
+      + (r.notes ? '<div style="font-size:11px;color:var(--sage);margin-top:3px;font-style:italic;">' + r.notes.slice(0, 60) + (r.notes.length > 60 ? '…' : '') + '</div>' : '')
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;">'
+      + (hasSchedule ? '<button class="action-btn" style="font-size:11px;white-space:nowrap;background:rgba(180,83,9,0.1);border-color:rgba(180,83,9,0.3);color:#b45309;" onclick="recordRepotDone(\'' + p.id + '\')">✅ Selesai</button>' : '')
+      + '<button class="action-btn" style="font-size:11px;" onclick="openRepotModal(\'' + p.id + '\')">' + (hasSchedule ? '⚙️ Ubah' : '+ Jadwal') + '</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  updateRepotBadge();
+}
+
+function updateRepotBadge() {
+  const badge = document.getElementById('repot-badge');
+  if (!badge) return;
+  const n = plants.filter(p => {
+    const rs = calcRepotStatus(p);
+    return rs && (rs.overdue || rs.urgent);
+  }).length;
+  if (n > 0) { badge.textContent = n; badge.style.display = 'inline'; }
+  else badge.style.display = 'none';
 }
 
 function setView(v) {
@@ -3681,6 +3917,61 @@ if ('serviceWorker' in navigator) {
       </div>
     </div>
   </div>
+
+<!-- REPOT MODAL -->
+<div class="modal-overlay" id="repotModal">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <div class="modal-title" id="repotModalTitle">🪴 Jadwal Repotting</div>
+      <button class="modal-close" onclick="closeModal('repotModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Terakhir Repot</label>
+          <input type="date" id="repot-last">
+        </div>
+        <div class="form-group">
+          <label>Jadwal Repot Berikutnya</label>
+          <input type="date" id="repot-next">
+        </div>
+        <div class="form-group full">
+          <label>Ukuran Pot Saat Ini</label>
+          <select id="repot-pot-size">
+            <option value="">— Pilih —</option>
+            <option>Mini (≤10cm)</option>
+            <option>Kecil (11–15cm)</option>
+            <option>Sedang (16–25cm)</option>
+            <option>Besar (26–40cm)</option>
+            <option>Jumbo (>40cm)</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Media Tanam</label>
+          <input type="text" id="repot-media" placeholder="e.g. Akadama + Pumice, Sekam bakar...">
+        </div>
+        <div class="form-group full">
+          <label>Catatan Repotting</label>
+          <textarea id="repot-notes" placeholder="Kondisi akar, media yang digunakan, observasi..."></textarea>
+        </div>
+      </div>
+      <!-- Shortcut hitung otomatis -->
+      <div style="background:var(--dew);border-radius:12px;padding:12px;margin-top:4px;">
+        <div style="font-size:11px;font-weight:700;color:var(--moss);margin-bottom:8px;">⚡ Hitung Otomatis dari Terakhir Repot</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" onclick="setRepotInterval(12)" style="padding:5px 12px;background:white;border:1px solid rgba(74,140,92,0.25);border-radius:8px;font-size:11px;font-weight:600;color:var(--moss);cursor:pointer;">+1 Tahun</button>
+          <button type="button" onclick="setRepotInterval(18)" style="padding:5px 12px;background:white;border:1px solid rgba(74,140,92,0.25);border-radius:8px;font-size:11px;font-weight:600;color:var(--moss);cursor:pointer;">+1.5 Tahun</button>
+          <button type="button" onclick="setRepotInterval(24)" style="padding:5px 12px;background:white;border:1px solid rgba(74,140,92,0.25);border-radius:8px;font-size:11px;font-weight:600;color:var(--moss);cursor:pointer;">+2 Tahun</button>
+          <button type="button" onclick="setRepotInterval(36)" style="padding:5px 12px;background:white;border:1px solid rgba(74,140,92,0.25);border-radius:8px;font-size:11px;font-weight:600;color:var(--moss);cursor:pointer;">+3 Tahun</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">
+        <button class="btn-ghost" style="color:var(--forest);border-color:rgba(74,140,92,0.3);background:var(--dew);" onclick="closeModal('repotModal')">Batal</button>
+        <button class="btn-primary" onclick="saveRepotSchedule()">💾 Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
